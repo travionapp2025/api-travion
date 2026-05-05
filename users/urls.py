@@ -4,6 +4,7 @@ from .views import (
     ForgotPasswordOTPView, VerifyOTPView, ResetPasswordOTPView,
     UserProfileView, UpdateUserProfileView, ChangePasswordView
 )
+from .views.signup_view import CreateProfileView
 from .views.delect_account_view import DeleteAccountView
 from .views.report_block_view import BlockUserView, UnblockUserView, ReportUserView, BlockedUsersView
 from .views.language_views import (
@@ -46,6 +47,7 @@ app_name = 'users'
 urlpatterns = [
     path('signup/', SignupView.as_view(), name='signup'),
     path('login/', LoginView.as_view(), name='login'),
+    path('create-profile/', CreateProfileView.as_view(), name='create_profile'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('token/refresh/', RefreshTokenView.as_view(), name='token_refresh'),
     

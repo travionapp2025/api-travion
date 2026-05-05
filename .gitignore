@@ -21,6 +21,12 @@ dist/
 db.sqlite3
 media/
 staticfiles/
+# Ignore migrations for all Django apps
+migrations/
+**/migrations/
+**/migrations/*.py
+**/migrations/*.pyc
+**/migrations/__pycache__/
 
 # IDE and editor files
 .vscode/

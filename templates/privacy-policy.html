@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    {% load static %}
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://code.iconify.design/iconify-icon/2.0.0/iconify-icon.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+
+</head>
+
+<body>
+    <main>
+         <nav>
+            <figure class="logo text-focus-in">
+                <img src="{% static 'images/appstore.png' %}" alt="" class="logo">
+            </figure>
+            <ul class="icon_buttons">
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Call me">
+                        <iconify-icon icon="solar:call-chat-bold"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Mail me">
+                        <iconify-icon icon="streamline:send-email-solid"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Whatsapp">
+                        <iconify-icon icon="ri:whatsapp-fill"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="travion-legal">
+            <div class="legal-card">
+
+                <h1 class="legal-title">Privacy Policy</h1>
+                <p class="legal-updated">Last updated: January 30, 2026</p>
+
+                <p>
+                    Travion (“we”, “our”, “us”) is committed to protecting your privacy.
+                    This Privacy Policy explains how we collect, use, and safeguard your
+                    information when you use our mobile application and services.
+                </p>
+
+                <h2>Information We Collect</h2>
+                <ul>
+                    <li>Basic profile information (name, email, phone number)</li>
+                    <li>Travel details voluntarily provided for companionship matching</li>
+                    <li>Device and app usage data</li>
+                </ul>
+
+                <h2>How We Use Your Information</h2>
+                <ul><p>
+                    <li>To match you with compatible travel companions</li>
+                    <li>To improve our services and user experience</li>
+                    <li>To communicate important updates</li>
+                </p></ul>
+
+                <h2>Data Sharing</h2>
+                <p>
+                    We do not sell your personal information. Limited data may be shared with
+                    trusted service providers solely for app functionality.
+                </p>
+
+                <h2>Security</h2>
+                <p>
+                    We use industry-standard measures to protect your information.
+                    However, no method of transmission is 100% secure.
+                </p>
+
+                <h2>Your Rights</h2>
+                <ul>
+                    <li>Request access to your data</li>
+                    <li>Request deletion of your data</li>
+                    <li>Update inaccurate information</li>
+                </ul>
+                <h2>Data Collection and Usage </h2>
+                <p>Signature Tech LLC collects profile information and travel-related data to facilitate itinerary sharing and related features within the Travion app. </p>
+
+                <h2>Data Retention &amp; Deletion (Guideline 5.1.1) </h2>
+                <ul>
+                    <li><strong>User Control:</strong>  We give you full control over your shared data. </li>
+                    <li><strong>Deletion Process:</strong> You can delete your account and associated data via the "Delete Account" button on the Profile Screen. </li>
+                    <li><strong>Permanent Removal:</strong>Once deleted, personal information, itineraries, and chat history are permanently removed from our active databases.</li>
+
+                </ul>
+
+                <h2>Subscription &amp; Payment Data (Guideline 3.1.2) </h2>
+                <p>
+                    We do not store financial or credit card details. All subscription purchases and payments are handled securely by Apple through the App Store. 
+                </p>
+
+                <h2>Safety and Moderation </h2>
+                <p>
+                   We may use collected data to enforce safety and moderation policies. If a user is reported for violating our User-Generated Content (UGC) terms, we will investigate and take appropriate action within 24 hours. 
+                </p>
+
+                <a href="/" class="back-link">← Back to Home</a>
+
+            </div>
+        </div>
+
+
+    </main>
+    <footer class="flex">
+            <ul class="social_icons flex">
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Facebook">
+                        <iconify-icon icon="qlementine-icons:facebook-16"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Instagram">
+                        <iconify-icon icon="akar-icons:instagram-fill"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Youtube">
+                        <iconify-icon icon="teenyicons:youtube-outline"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="LinkedIn">
+                        <iconify-icon icon="hugeicons:linkedin-01"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+            <ul class="links flex text-focus-in">
+                <li>
+                    <a href="{% url 'privacy_policy' %}">Privacy Policy</a>
+                </li>
+                <li>
+                    <a href="{% url 'terms_and_conditions' %}">Terms and condition</a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)">Connect with me</a>
+                </li>
+            </ul>
+            <section class="sub_footer flex text-focus-in">
+
+                <a href="mailto:support@signaturetechllc.com">support@signaturetechllc.com</a>
+
+            </section>
+        </footer>
+
+</body>
+
+</html>

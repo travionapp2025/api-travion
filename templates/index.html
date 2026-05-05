@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Travion</title>
+    {% load static %}
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://code.iconify.design/iconify-icon/2.0.0/iconify-icon.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+
+</head>
+
+<body>
+
+    <main>
+
+        <nav>
+            <figure class="logo text-focus-in">
+                <img src="{% static 'images/appstore.png' %}" alt="" class="logo">
+            </figure>
+            <ul class="icon_buttons">
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Call me">
+                        <iconify-icon icon="solar:call-chat-bold"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Mail me">
+                        <iconify-icon icon="streamline:send-email-solid"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Whatsapp">
+                        <iconify-icon icon="ri:whatsapp-fill"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <main>
+            <section class="banner-section">
+                <figure class="hero">
+                    <div class="content-hero">
+                        <h1 class="title big text-focus-in">Travel app – Connect & Share Flight Plans</h1>
+                        <p class="subtitle-hero">Find travel companions, share itineraries, and get notified instantly.
+                        </p>
+                    </div>
+                    <div class="image-hero"><img src="{% static 'images/mobile.png' %}" alt=""></div>
+
+
+                </figure>
+            </section>
+
+            <section class="discription-section">
+                <p class="hero-text">Travel app is a smart platform for travelers who want to connect, coordinate,
+                    and make the most of their journeys. With TravelMate, users can:</p>
+                <div class="card-outer">
+                    <div class="card">
+                        <h3>Upload Flight Itineraries</h3>
+                        <p>Easily add your flight details to your profile.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Search & Match Itineraries</h3>
+                        <p>The app intelligently matches users with similar or identical travel plans.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Instant Notifications</h3>
+                        <p>Receive real-time alerts when another traveler uploads or searches for a matching itinerary.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <h3>Chat with Travelers</h3>
+                        <p>Connect directly with matched users through a secure in-app chat</p>
+                    </div>
+                </div>
+            </section>
+            <section class="about-us-section">
+                <div class="about-inner">
+                    <div>
+                        <img src="{% static 'images/mobile.png' %}" alt="">
+                    </div>
+                    <div class="content-about">
+                        <h3>Key Features</h3>
+                        <p>Travel app makes it easy to find fellow travelers on the same route, coordinate plans, and
+                            enhance your travel experience. Whether you’re flying for business, leisure, or adventure,
+                            Travel app keeps you connected every step of the way.</p>
+                        <ul class="key-feature-list">
+                            <li>One-to-one messaging with travelers</li>
+                            <li>Upload, search, and match flight itineraries</li>
+                            <li>Real-time notifications for itinerary matches</li>
+                            <li>Safe and secure travel networking</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+        <footer class="flex">
+            <ul class="social_icons flex">
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Facebook">
+                        <iconify-icon icon="qlementine-icons:facebook-16"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Instagram">
+                        <iconify-icon icon="akar-icons:instagram-fill"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Youtube">
+                        <iconify-icon icon="teenyicons:youtube-outline"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="LinkedIn">
+                        <iconify-icon icon="hugeicons:linkedin-01"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+            <ul class="links flex text-focus-in">
+                <li>
+                    <a href="{% url 'privacy_policy' %}">Privacy Policy</a>
+                </li>
+                <li>
+                    <a href="{% url 'terms_and_conditions' %}">Terms and condition</a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)">Connect with me</a>
+                </li>
+            </ul>
+            <section class="sub_footer flex text-focus-in">
+
+                <a href="mailto:support@signaturetechllc.com">support@signaturetechllc.com</a>
+
+            </section>
+        </footer>
+
+    </main>
+    <script src="{% static 'script.js' %}"></script>
+
+</body>
+
+</html>

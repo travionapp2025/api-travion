@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    {% load static %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://code.iconify.design/iconify-icon/2.0.0/iconify-icon.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+
+<body>
+    <main>
+         <nav>
+            <figure class="logo text-focus-in">
+                <img src="{% static 'images/appstore.png' %}" alt="" class="logo">
+            </figure>
+            <ul class="icon_buttons">
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Call me">
+                        <iconify-icon icon="solar:call-chat-bold"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Mail me">
+                        <iconify-icon icon="streamline:send-email-solid"></iconify-icon>
+                    </a>
+                </li>
+                <li class="text-focus-in">
+                    <a href="javascript:void(0)" class="icon_btn hint--left" aria-label="Whatsapp">
+                        <iconify-icon icon="ri:whatsapp-fill"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="travion-legal">
+            <div class="legal-card">
+
+                <h1 class="legal-title">Terms & Conditions</h1>
+                <p class="legal-updated">Last updated: January 30, 2026</p>
+
+                <p>
+                    Welcome to Travion. By accessing or using our mobile application and
+                    services, you agree to be bound by these Terms & Conditions.
+                    Please read them carefully.
+                </p>
+
+                <h2>Use of the App</h2>
+                <p>
+                    Travion provides a platform to connect travelers and share flight
+                    itineraries. You agree to use the app only for lawful purposes and
+                    in accordance with these terms.
+                </p>
+
+                <h2>User Responsibilities</h2>
+                <ul>
+                    <li>Provide accurate and up-to-date information</li>
+                    <li>Respect other users and communicate responsibly</li>
+                    <li>Do not misuse or attempt to exploit the platform</li>
+                </ul>
+
+                <h2>Account Termination</h2>
+                <p>
+                    We reserve the right to suspend or terminate accounts that violate
+                    these terms or engage in harmful behavior.
+                </p>
+
+                <h2>Limitation of Liability</h2>
+                <p>
+                    Travion is not responsible for any direct or indirect damages resulting
+                    from the use of the app, including interactions with other travelers.
+                </p>
+
+                <h2>Changes to Terms</h2>
+                <p>
+                    We may update these Terms & Conditions from time to time.
+                    Continued use of the app constitutes acceptance of the updated terms.
+                </p>
+                <h2>Agreement to Terms </h2>
+                <p>
+                    By accessing or using the Travion mobile application, you agree to be bound by these Terms and Conditions. This agreement is strictly between the user and Signature Tech LLC, not Apple, Inc. Signature Tech LLC is solely responsible for the app and its content.
+                </p>
+
+                <h2>User-Generated Content (UGC) Policy (Guideline 1.2) </h2>
+                <ul>
+                    <li><strong>Zero Tolerance:</strong> There is no tolerance for objectionable content or abusive users. </li>
+                    <li><strong>Prohibited Content:</strong>  Users may not post content that is offensive, pornographic, hateful, defamatory, or promotes violence. </li>
+                    <li><strong>Reporting &amp; Blocking: </strong> Users can "Flag/Report" inappropriate content and "Block" abusive users instantly within the app. </li>
+                    <li><strong>24-Hour Enforcement:</strong>  Signature Tech LLC will review reports and act within 24 hours to remove offending content and eject the user. </li>
+
+                </ul>
+
+                <h2>Auto-Renewable Subscriptions (Guideline 3.1.2) </h2>
+                <p>Travion offers Travion Standard and Travion Pro subscriptions. </p></ul>
+                <ul>
+                    <li><strong>Payment</strong> Charged to your iTunes Account at confirmation of purchase. </li>
+                    <li><strong>Auto-Renewal:</strong> Subscriptions automatically renew unless turned off at least 24 hours before the end of the current period. </li>
+                    <li><strong>Management:</strong> You can manage or cancel subscriptions in your App Store Account Settings. </li>
+
+                </ul>
+
+                <h2>Account Deletion (Guideline 5.1.1) </h2>
+                <p>
+                    Users can initiate permanent account deletion at any time through the Profile Screen. All data will be permanently removed from our servers. 
+                </p>
+
+                <a href="/" class="back-link">← Back to Home</a>
+
+            </div>
+        </div>
+
+    </main>
+    <footer class="flex">
+            <ul class="social_icons flex">
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Facebook">
+                        <iconify-icon icon="qlementine-icons:facebook-16"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Instagram">
+                        <iconify-icon icon="akar-icons:instagram-fill"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="Youtube">
+                        <iconify-icon icon="teenyicons:youtube-outline"></iconify-icon>
+                    </a>
+                </li>
+                <li class="icon">
+                    <a href="javascript:void(0)" class="medium hint--top text-focus-in" aria-label="LinkedIn">
+                        <iconify-icon icon="hugeicons:linkedin-01"></iconify-icon>
+                    </a>
+                </li>
+            </ul>
+           <ul class="links flex text-focus-in">
+                <li>
+                    <a href="{% url 'privacy_policy' %}">Privacy Policy</a>
+                </li>
+                <li>
+                    <a href="{% url 'terms_and_conditions' %}">Terms and condition</a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)">Connect with me</a>
+                </li>
+            </ul>
+            <section class="sub_footer flex text-focus-in">
+
+                <a href="mailto:support@signaturetechllc.com">support@signaturetechllc.com</a>
+
+            </section>
+        </footer>
+
+</body>
+
+</html>

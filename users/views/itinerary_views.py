@@ -202,13 +202,29 @@ class ItineraryListView(APIView):
                         'error': 'A duplicate itinerary already exists. Please use the existing itinerary or modify the details.',
                         'existing_itinerary_id': existing_itinerary.id
                     }, status=status.HTTP_400_BAD_REQUEST)
-            
+
+            user_itinerary_count = Itinerary.objects.filter(user=request.user).count()
+            is_first_itinerary = user_itinerary_count == 0
+            active_subscription = (request.user.subscription_status or '').lower() == 'active'
+
+            if not is_first_itinerary and not active_subscription:
+                logger.warning(f"User {request.user.id} attempted to create a non-first itinerary without an active subscription")
+                return Response(
+                    {
+                        'error': 'Active subscription required to create additional itineraries.',
+                        'is_first_itinerary': False,
+                        'active_subscription': False
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # Create itinerary object (will be saved or deleted based on toggle)
             itinerary = Itinerary(
                 user=request.user,
                 title=title,
                 travel_type=travel_type,
-                is_available=is_available
+                is_available=is_available,
+                is_first_itinerary=is_first_itinerary
             )
             itinerary.save()
            
@@ -309,7 +325,9 @@ class ItineraryListView(APIView):
                     'status': 'searched',
                     'saved': False,
                     'matching_status': 'completed',
-                    'matches': serialized_matches
+                    'matches': serialized_matches,
+                    'is_first_itinerary': itinerary.is_first_itinerary,
+                    'active_subscription': active_subscription
                 }, status=status.HTTP_200_OK)
             else:
                 logger.info(f"✅ Itinerary {itinerary.id} created successfully, {len(serialized_matches)} matches found.")
@@ -319,7 +337,9 @@ class ItineraryListView(APIView):
                     'status': 'created',
                     'saved': True,
                     'matching_status': 'completed',
-                    'matches': serialized_matches
+                    'matches': serialized_matches,
+                    'is_first_itinerary': itinerary.is_first_itinerary,
+                    'active_subscription': active_subscription
                 }, status=status.HTTP_201_CREATED)
             
         except json.JSONDecodeError:

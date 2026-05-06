@@ -18,6 +18,7 @@ class Itinerary(models.Model):
     title = models.CharField(max_length=200, help_text="Trip title or description")
     travel_type = models.CharField(max_length=20, choices=TRAVEL_TYPE_CHOICES, default='one_way')
     is_available = models.BooleanField(default=True, help_text="Available to provide services")
+    is_first_itinerary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

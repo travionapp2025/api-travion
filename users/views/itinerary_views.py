@@ -215,7 +215,7 @@ class ItineraryListView(APIView):
                         'is_first_itinerary': False,
                         'active_subscription': False
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_402_PAYMENT_REQUIRED
                 )
 
             # Create itinerary object (will be saved or deleted based on toggle)

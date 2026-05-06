@@ -658,7 +658,7 @@ class ItineraryMatchView(APIView):
     where a segment has both airports, and partial matches where a segment
     has either the from or to airport.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def post(self, request):
         try:

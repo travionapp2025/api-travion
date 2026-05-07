@@ -35,6 +35,26 @@ class ItineraryListView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    def _parse_bool(self, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in ['true', '1', 'yes', 'on']
+        if isinstance(value, int):
+            return value != 0
+        return False
+
+    def get_permissions(self):
+        """Allow anonymous POST search requests while requiring auth for saved itinerary creation."""
+        if self.request.method == 'POST':
+            try:
+                data = self.request.data if hasattr(self.request, 'data') else json.loads(self.request.body)
+                if not self._parse_bool(data.get('save_itinerary', True)):
+                    return []
+            except Exception:
+                pass
+        return [permission() for permission in self.permission_classes]
+
     def _check_duplicate_itinerary(self, user, segments_data):
         """
         Check if an identical itinerary already exists for the user.
@@ -113,6 +133,45 @@ class ItineraryListView(APIView):
         
         return None
 
+    def _search_matches_from_segments(self, segments_data):
+        matches = []
+        for segment_data in segments_data:
+            from_airport = segment_data['from_airport'].upper()
+            to_airport = segment_data['to_airport'].upper()
+            departure_date_from = datetime.strptime(segment_data['departure_date_from'], '%Y-%m-%d').date()
+            departure_date_to = datetime.strptime(segment_data['departure_date_to'], '%Y-%m-%d').date()
+
+            provider_segments = TravelSegment.objects.filter(
+                itinerary__is_available=True,
+                from_airport=from_airport,
+                to_airport=to_airport,
+                departure_date_from__lte=departure_date_to,
+                departure_date_to__gte=departure_date_from
+            ).select_related('itinerary', 'itinerary__user')
+
+            for provider_segment in provider_segments:
+                provider_itinerary = provider_segment.itinerary
+                provider_user = provider_itinerary.user
+                matches.append({
+                    'match_type': 'provider',
+                    'match_quality': 'exact',
+                    'from_airport': provider_segment.from_airport,
+                    'to_airport': provider_segment.to_airport,
+                    'provider_itinerary_id': provider_itinerary.id,
+                    'provider_user_id': provider_user.id,
+                    'provider_username': provider_user.full_name,
+                    'provider_user': {
+                        'id': provider_user.id,
+                        'full_name': provider_user.full_name,
+                        'email': provider_user.email,
+                        'phonenumber': provider_user.phonenumber,
+                        'role': provider_user.role,
+                        'profile_picture': (provider_user.profile_picture.url if provider_user.profile_picture else None),
+                        'bio': provider_user.bio,
+                    }
+                })
+        return matches
+
     def get(self, request):
         try:
             user = request.user
@@ -173,7 +232,7 @@ class ItineraryListView(APIView):
             travel_type = data.get('travel_type', 'one_way')
             is_available = data.get('is_available', True)
             segments_data = data.get('segments', [])
-            save_itinerary = data.get('save_itinerary', True) 
+            save_itinerary = self._parse_bool(data.get('save_itinerary', True)) 
             
             errors = {}
             
@@ -204,41 +263,46 @@ class ItineraryListView(APIView):
                         'existing_itinerary_id': existing_itinerary.id
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create itinerary object (will be saved or deleted based on toggle)
-            itinerary = Itinerary(
-                user=request.user,
-                title=title,
-                travel_type=travel_type,
-                is_available=is_available
-            )
-            itinerary.save()
-           
-            # Create segments
-            segment_objects = []
-            for i, segment_data in enumerate(segments_data):
-                departure_date_from = datetime.strptime(segment_data['departure_date_from'], '%Y-%m-%d').date()
-                departure_date_to = datetime.strptime(segment_data['departure_date_to'], '%Y-%m-%d').date()
-                departure_time_from = datetime.strptime(segment_data['departure_time_from'], '%H:%M').time() if segment_data.get('departure_time_from') else None
-                departure_time_to = datetime.strptime(segment_data['departure_time_to'], '%H:%M').time() if segment_data.get('departure_time_to') else None
-                layovers = self._sanitize_layovers(segment_data.get('layovers'))
-                
-                segment = TravelSegment.objects.create(
-                    itinerary=itinerary,
-                    from_airport=segment_data['from_airport'].upper(),
-                    to_airport=segment_data['to_airport'].upper(),
-                    departure_date_from=departure_date_from,
-                    departure_date_to=departure_date_to,
-                    departure_time_from=departure_time_from,
-                    departure_time_to=departure_time_to,
-                    airline=segment_data.get('airline', ''),
-                    flight_number=segment_data.get('flight_number', ''),
-                    segment_order=i + 1,
-                    layovers=layovers
+            itinerary = None
+            if save_itinerary:
+                itinerary = Itinerary(
+                    user=request.user,
+                    title=title,
+                    travel_type=travel_type,
+                    is_available=is_available
                 )
-                segment_objects.append(segment)
-            
+                itinerary.save()
+               
+                # Create segments
+                segment_objects = []
+                for i, segment_data in enumerate(segments_data):
+                    departure_date_from = datetime.strptime(segment_data['departure_date_from'], '%Y-%m-%d').date()
+                    departure_date_to = datetime.strptime(segment_data['departure_date_to'], '%Y-%m-%d').date()
+                    departure_time_from = datetime.strptime(segment_data['departure_time_from'], '%H:%M').time() if segment_data.get('departure_time_from') else None
+                    departure_time_to = datetime.strptime(segment_data['departure_time_to'], '%H:%M').time() if segment_data.get('departure_time_to') else None
+                    layovers = self._sanitize_layovers(segment_data.get('layovers'))
+                    
+                    segment = TravelSegment.objects.create(
+                        itinerary=itinerary,
+                        from_airport=segment_data['from_airport'].upper(),
+                        to_airport=segment_data['to_airport'].upper(),
+                        departure_date_from=departure_date_from,
+                        departure_date_to=departure_date_to,
+                        departure_time_from=departure_time_from,
+                        departure_time_to=departure_time_to,
+                        airline=segment_data.get('airline', ''),
+                        flight_number=segment_data.get('flight_number', ''),
+                        segment_order=i + 1,
+                        layovers=layovers
+                    )
+                    segment_objects.append(segment)
+            else:
+                # Search-only path does not create a saved itinerary
+                matches = self._search_matches_from_segments(segments_data)
+
             # Find matches
-            matches = MatchingService.find_matches_for_new_itinerary(itinerary)
+            if save_itinerary:
+                matches = MatchingService.find_matches_for_new_itinerary(itinerary)
             
             def _serialize_user(user):
                 if not user:
@@ -279,6 +343,17 @@ class ItineraryListView(APIView):
                         'seeker_username': seeker_request.user.full_name,
                         'seeker_user': _serialize_user(seeker_request.user),
                     })
+                elif match_type == 'provider':
+                    serialized_matches.append({
+                        'match_type': 'provider',
+                        'match_quality': match.get('match_quality'),
+                        'from_airport': match.get('from_airport'),
+                        'to_airport': match.get('to_airport'),
+                        'provider_itinerary_id': match.get('provider_itinerary_id'),
+                        'provider_user_id': match.get('provider_user_id'),
+                        'provider_username': match.get('provider_username'),
+                        'provider_user': match.get('provider_user'),
+                    })
                 elif match_type == 'provider_provider':
                     matched_itinerary = match['matched_provider_itinerary']
                     provider_segment = match.get('provider_segment')
@@ -303,7 +378,6 @@ class ItineraryListView(APIView):
                     })
 
             if not save_itinerary:
-                itinerary.delete()  
                 logger.info(f"🔍 Temporary search completed, {len(serialized_matches)} matches found (not saved).")
                 return Response({
                     'message': 'Route search completed successfully!',

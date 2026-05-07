@@ -116,6 +116,7 @@ class ItineraryListView(APIView):
     def get(self, request):
         try:
             user = request.user
+            active_subscription = (user.subscription_status or '').lower() == 'active'
             itineraries = Itinerary.objects.filter(user=user).prefetch_related('segments')
             
             itinerary_data = []
@@ -142,6 +143,8 @@ class ItineraryListView(APIView):
                     'title': itinerary.title,
                     'travel_type': itinerary.travel_type,
                     'is_available': itinerary.is_available,
+                    'is_first_itinerary': itinerary.is_first_itinerary,
+                    'active_subscription': active_subscription,
                     'total_segments': itinerary.total_segments,
                     'departure_date': itinerary.departure_date,
                     'arrival_date': itinerary.arrival_date,
@@ -206,17 +209,6 @@ class ItineraryListView(APIView):
             user_itinerary_count = Itinerary.objects.filter(user=request.user).count()
             is_first_itinerary = user_itinerary_count == 0
             active_subscription = (request.user.subscription_status or '').lower() == 'active'
-
-            if not is_first_itinerary and not active_subscription:
-                logger.warning(f"User {request.user.id} attempted to create a non-first itinerary without an active subscription")
-                return Response(
-                    {
-                        'error': 'Active subscription required to create additional itineraries.',
-                        'is_first_itinerary': False,
-                        'active_subscription': False
-                    },
-                    status=status.HTTP_402_PAYMENT_REQUIRED
-                )
 
             # Create itinerary object (will be saved or deleted based on toggle)
             itinerary = Itinerary(
@@ -577,11 +569,14 @@ class ItineraryDetailView(APIView):
                                 'bio': provider_user.bio,
                             }
                         })
+            active_subscription = (request.user.subscription_status or '').lower() == 'active'
             itinerary_data = {
                 'id': itinerary.id,
                 'title': itinerary.title,
                 'travel_type': itinerary.travel_type,
                 'is_available': itinerary.is_available,
+                'is_first_itinerary': itinerary.is_first_itinerary,
+                'active_subscription': active_subscription,
                 'total_segments': itinerary.total_segments,
                 'departure_date': itinerary.departure_date,
                 'arrival_date': itinerary.arrival_date,

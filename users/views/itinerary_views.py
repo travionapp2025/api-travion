@@ -116,7 +116,6 @@ class ItineraryListView(APIView):
     def get(self, request):
         try:
             user = request.user
-            active_subscription = (user.subscription_status or '').lower() == 'active'
             itineraries = Itinerary.objects.filter(user=user).prefetch_related('segments')
             
             itinerary_data = []
@@ -143,10 +142,9 @@ class ItineraryListView(APIView):
                     'title': itinerary.title,
                     'travel_type': itinerary.travel_type,
                     'is_available': itinerary.is_available,
-                    'is_first_itinerary': itinerary.is_first_itinerary,
-                    'active_subscription': active_subscription,
                     'total_segments': itinerary.total_segments,
                     'departure_date': itinerary.departure_date,
+                    "is paid": itinerary.is_paid,
                     'arrival_date': itinerary.arrival_date,
                     'created_at': itinerary.created_at,
                     'updated_at': itinerary.updated_at,
@@ -206,17 +204,12 @@ class ItineraryListView(APIView):
                         'existing_itinerary_id': existing_itinerary.id
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-            user_itinerary_count = Itinerary.objects.filter(user=request.user).count()
-            is_first_itinerary = user_itinerary_count == 0
-            active_subscription = (request.user.subscription_status or '').lower() == 'active'
-
             # Create itinerary object (will be saved or deleted based on toggle)
             itinerary = Itinerary(
                 user=request.user,
                 title=title,
                 travel_type=travel_type,
-                is_available=is_available,
-                is_first_itinerary=is_first_itinerary
+                is_available=is_available
             )
             itinerary.save()
            
@@ -317,9 +310,7 @@ class ItineraryListView(APIView):
                     'status': 'searched',
                     'saved': False,
                     'matching_status': 'completed',
-                    'matches': serialized_matches,
-                    'is_first_itinerary': itinerary.is_first_itinerary,
-                    'active_subscription': active_subscription
+                    'matches': serialized_matches
                 }, status=status.HTTP_200_OK)
             else:
                 logger.info(f"✅ Itinerary {itinerary.id} created successfully, {len(serialized_matches)} matches found.")
@@ -329,9 +320,7 @@ class ItineraryListView(APIView):
                     'status': 'created',
                     'saved': True,
                     'matching_status': 'completed',
-                    'matches': serialized_matches,
-                    'is_first_itinerary': itinerary.is_first_itinerary,
-                    'active_subscription': active_subscription
+                    'matches': serialized_matches
                 }, status=status.HTTP_201_CREATED)
             
         except json.JSONDecodeError:
@@ -569,14 +558,11 @@ class ItineraryDetailView(APIView):
                                 'bio': provider_user.bio,
                             }
                         })
-            active_subscription = (request.user.subscription_status or '').lower() == 'active'
             itinerary_data = {
                 'id': itinerary.id,
                 'title': itinerary.title,
                 'travel_type': itinerary.travel_type,
                 'is_available': itinerary.is_available,
-                'is_first_itinerary': itinerary.is_first_itinerary,
-                'active_subscription': active_subscription,
                 'total_segments': itinerary.total_segments,
                 'departure_date': itinerary.departure_date,
                 'arrival_date': itinerary.arrival_date,

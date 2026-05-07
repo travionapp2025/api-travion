@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.db.models import Q
-from users.models import User, Conversation, Message, ReportedUser, BlockedUser
+from users.models import User, Conversation, Message, ReportedUser, BlockedUser, Itinerary
 from django.conf import settings
 import json
 
@@ -60,38 +60,22 @@ class ChatConnectionView(APIView):
 
             created = False
             if not conversation:
-                # Enforce subscription limits only when creating new conversation
-                subscription_type = (request.user.subscription_type or 'none').lower()
-                
-                # Check subscription limits
-                if subscription_type == 'none':
-                    # No subscription - cannot start new conversations
-                    return Response(
-                        {
-                            'error': 'subscription_required',
-                            'message': 'A subscription is required to start new conversations.',
-                            'required_subscription': 'standard_or_pro'
-                        },
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                elif subscription_type == 'standard':
-                    # Standard subscription - can chat with up to 5 users total
-                    existing_count = Conversation.objects.filter(
-                        Q(user1_id=request.user.id) | Q(user2_id=request.user.id)
-                    ).count()
-                    if existing_count >= 5:
+                existing_used_conversation = Conversation.objects.filter(
+                    Q(user1_id=request.user.id) | Q(user2_id=request.user.id),
+                    is_first_time=False
+                ).exists()
+
+                if existing_used_conversation:
+                    has_paid_itinerary = Itinerary.objects.filter(user=request.user, is_paid=True).exists()
+                    if not has_paid_itinerary:
                         return Response(
                             {
-                                'error': 'connection_limit_reached',
-                                'message': 'Standard plan allows chat with up to 5 users. Upgrade to Pro for unlimited connections.',
-                                'limit': 5,
-                                'current_count': existing_count
+                                'error': 'payment_required',
+                                'message': 'First chat is free. Additional chats require a paid itinerary.'
                             },
-                            status=status.HTTP_403_FORBIDDEN
+                            status=status.HTTP_402_PAYMENT_REQUIRED
                         )
-                # Pro subscription - unlimited conversations (no limit check needed)
 
-                # Create conversation after passing limit checks
                 conversation = Conversation.objects.create(
                     user1_id=uid1,
                     user2_id=uid2

@@ -12,31 +12,45 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
     """
     
     async def connect(self):
+        print(f"\n🔗 [UPDATES_CONNECT] WebSocket connection attempt started")
+        print(f"   Scope: {self.scope.get('url_route', {})}")
+        
         token = None
         try:
             query_string = self.scope.get('query_string', b'').decode()
+            print(f"   Query string: {query_string}")
             if query_string:
                 for part in query_string.split('&'):
                     if part.startswith('token='):
                         token = part.split('=', 1)[1]
+                        print(f"   ✓ Token extracted (length: {len(token)})")
                         break
-        except Exception:
+        except Exception as e:
+            print(f"   ⚠️ Error parsing query string: {str(e)}")
             token = None
 
         # Authenticate current user via JWT token
+        print(f"   Authenticating token...")
         self.current_user = await self._authenticate_token(token)
         if not self.current_user:
+            print(f"   ❌ Authentication failed - closing connection (4401)")
             await self.close(code=4401)  # Unauthorized
             return
+        print(f"   ✓ User authenticated: {self.current_user.id} ({self.current_user.email})")
 
         # Set up group name for this user's chat updates
         self.group_name = f"chat_updates_{self.current_user.id}"
+        print(f"   Adding to group: {self.group_name}")
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        
+        print(f"   ✓ Accepting WebSocket connection...")
         await self.accept()
 
         # Send initial connection data including notification counts
+        print(f"   Fetching initial data...")
         initial_data = await self._get_initial_data()
         
+        print(f"   Sending initial connected message...")
         await self.send(text_data=json.dumps({
             'event': 'connected',
             'user_id': self.current_user.id,
@@ -44,21 +58,29 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
             'data': initial_data
         }))
         
-        print(f"WebSocket connected for user {self.current_user.id} ({self.current_user.email}) - Group: {self.group_name}")
+        print(f"✅ [UPDATES_CONNECT] Connection successful for user {self.current_user.id}\n")
 
     async def disconnect(self, close_code):
+        print(f"\n🔌 [UPDATES_DISCONNECT] Disconnected with code {close_code}")
         if hasattr(self, 'group_name'):
+            print(f"   Discarding group: {self.group_name}")
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        print(f"✅ [UPDATES_DISCONNECT] Complete\n")
 
     async def receive(self, text_data=None, bytes_data=None):
+        print(f"📨 [UPDATES_RECEIVE] Message from user {self.current_user.id}")
         try:
             payload = json.loads(text_data or '{}')
-        except json.JSONDecodeError:
+            print(f"   Payload: {payload}")
+        except json.JSONDecodeError as e:
+            print(f"   ❌ JSON decode error: {str(e)}")
             return
 
         action = payload.get('action', 'ping')
+        print(f"   Action: {action}")
 
         if action == 'ping':
+            print(f"   Responding to ping...")
             await self.send(text_data=json.dumps({
                 'event': 'pong',
                 'timestamp': payload.get('timestamp')
@@ -67,6 +89,7 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
     # Handle different types of chat updates
     async def new_message_update(self, event):
         """Handle new message notifications"""
+        print(f"      [BROADCAST] Sending new_message_update to user {self.current_user.id}")
         await self.send(text_data=json.dumps({
             'event': 'new_message',
             'conversation_id': event['conversation_id'],
@@ -77,6 +100,7 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
 
     async def message_read_update(self, event):
         """Handle message read notifications"""
+        print(f"      [BROADCAST] Sending message_read_update to user {self.current_user.id}")
         await self.send(text_data=json.dumps({
             'event': 'message_read',
             'conversation_id': event['conversation_id'],
@@ -85,6 +109,7 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
 
     async def conversation_update(self, event):
         """Handle general conversation updates"""
+        print(f"      [BROADCAST] Sending conversation_update to user {self.current_user.id}")
         await self.send(text_data=json.dumps({
             'event': 'conversation_update',
             'conversation_id': event['conversation_id'],
@@ -93,6 +118,7 @@ class ChatUpdatesConsumer(AsyncWebsocketConsumer):
 
     async def conversation_read_update(self, event):
         """Handle conversation read updates"""
+        print(f"      [BROADCAST] Sending conversation_read_update to user {self.current_user.id}")
         await self.send(text_data=json.dumps({
             'event': 'conversation_read',
             'conversation_id': event['conversation_id'],

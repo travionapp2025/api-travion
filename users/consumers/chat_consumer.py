@@ -4,6 +4,7 @@ from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
 from users.models.chat import Conversation, Message
+from users.models.itinerary import Itinerary
 from users.models.user import User
 import asyncio
 from users.services.firebase_admin_service import firebase_admin_service
@@ -11,30 +12,48 @@ from users.services.firebase_admin_service import firebase_admin_service
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        print(f"\n🔗 [CHAT_CONNECT] WebSocket connection attempt started")
+        print(f"   Scope route: {self.scope.get('url_route', {})}")
+        
         self.other_user_id = self.scope['url_route']['kwargs'].get('other_user_id')
+        print(f"   Extracted other_user_id: {self.other_user_id}")
+        
         if not self.other_user_id:
+            print(f"   ❌ Missing other_user_id - closing connection (4400)")
             await self.close(code=4400)  
             return
 
         token = None
         try:
             query_string = self.scope.get('query_string', b'').decode()
+            print(f"   Query string: {query_string}")
             if query_string:
                 for part in query_string.split('&'):
                     if part.startswith('token='):
                         token = part.split('=', 1)[1]
+                        print(f"   ✓ Token extracted (length: {len(token)})")
                         break
-        except Exception:
+        except Exception as e:
+            print(f"   ⚠️ Error parsing query string: {str(e)}")
             token = None
 
+        if not token:
+            print(f"   ❌ No token found in query string")
+
+        print(f"   Authenticating token...")
         self.current_user = await self._authenticate_token(token)
         if not self.current_user:
+            print(f"   ❌ Authentication failed - closing connection (4401)")
             await self.close(code=4401)  
             return
+        print(f"   ✓ User authenticated: {self.current_user.id} ({self.current_user.email})")
 
         try:
+            print(f"   Fetching other user {self.other_user_id}...")
             self.other_user = await self._get_user(self.other_user_id)
-        except Exception:
+            print(f"   ✓ Other user found: {self.other_user.id} ({self.other_user.email})")
+        except Exception as e:
+            print(f"   ❌ Other user not found: {str(e)} - closing connection (4404)")
             await self.close(code=4404)  
             return
 
@@ -46,6 +65,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Check if conversation exists; enforce subscription limits before creating
         from asgiref.sync import sync_to_async
 
+        print(f"   Checking for existing conversation...")
         async_get_existing = sync_to_async(
             lambda: Conversation.objects.filter(
                 user1_id=min(self.current_user.id, self.other_user.id),
@@ -55,31 +75,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
         existing_conversation = await async_get_existing()
 
         if existing_conversation:
+            print(f"   ✓ Existing conversation found: {existing_conversation.id}")
             self.conversation = existing_conversation
         else:
-            subscription_type = (self.current_user.subscription_type or 'none').lower()
-        
-            if subscription_type == 'none':
-                await self.close(code=4403)
-                return
-            elif subscription_type == 'standard':
-                async_count = sync_to_async(
-                    lambda: Conversation.objects.filter(
-                        Q(user1_id=self.current_user.id) | Q(user2_id=self.current_user.id)
-                    ).count()
+            print(f"   No existing conversation. Checking payment rules...")
+            async_has_used_chat = sync_to_async(
+                lambda: Conversation.objects.filter(
+                    Q(user1_id=self.current_user.id) | Q(user2_id=self.current_user.id),
+                    is_first_time=False
+                ).exists()
+            )
+            has_used_free_chat = await async_has_used_chat()
+            print(f"   Has used a first chat already: {has_used_free_chat}")
+
+            if has_used_free_chat:
+                print(f"   Checking for paid itinerary (first chat is free, next requires payment)...")
+                async_paid = sync_to_async(
+                    lambda: Itinerary.objects.filter(user=self.current_user, is_paid=True).exists()
                 )
-                existing_count = await async_count()
-                if existing_count >= 5:
+                has_paid_itinerary = await async_paid()
+                print(f"   Has paid itinerary: {has_paid_itinerary}")
+                if not has_paid_itinerary:
+                    print(f"   ❌ No paid itinerary - closing connection (4403 Payment Required)")
                     await self.close(code=4403)
                     return
-            # Pro subscription - unlimited conversations (no limit check needed)
 
+            print(f"   ✓ Creating new conversation...")
             self.conversation = await self._get_or_create_conversation(self.current_user, self.other_user)
+            print(f"   ✓ Conversation created/retrieved: {self.conversation.id}")
         
         self.group_name = f"chat_{self.conversation.id}"
+        print(f"   Adding to group: {self.group_name}")
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        
+        print(f"   ✓ Accepting WebSocket connection...")
         await self.accept()
 
+        print(f"   Sending initial connected message...")
         await self.send(text_data=json.dumps({
             'event': 'connected',
             'conversation_id': self.conversation.id,
@@ -91,30 +123,45 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'profile_picture': self.other_user.profile_picture.url if self.other_user.profile_picture else None
             }
         }))
+        print(f"\n✅ [CHAT_CONNECT] Connection successful for user {self.current_user.id} <-> {self.other_user.id}\n")
 
     async def disconnect(self, close_code):
+        print(f"\n🔌 [CHAT_DISCONNECT] Disconnected with code {close_code}")
         if hasattr(self, 'group_name'):
+            print(f"   Discarding group: {self.group_name}")
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        print(f"✅ [CHAT_DISCONNECT] Complete\n")
 
     async def receive(self, text_data=None, bytes_data=None):
+        print(f"📨 [CHAT_RECEIVE] Message received from user {self.current_user.id}")
         try:
             payload = json.loads(text_data or '{}')
-        except json.JSONDecodeError:
+            print(f"   Payload: {payload}")
+        except json.JSONDecodeError as e:
+            print(f"   ❌ JSON decode error: {str(e)}")
             return
 
         action = payload.get('action', 'message')
+        print(f"   Action: {action}")
 
         if action == 'message':
+            print(f"   Processing message action...")
             content = (payload.get('content') or '').strip()
             if not content:
+                print(f"   ❌ Empty content")
                 return
 
+            print(f"   Creating message (content length: {len(content)})...")
             msg = await self._create_message(self.conversation, self.current_user, content)
+            print(f"   ✓ Message created: {msg.id}")
 
+            print(f"   Handling first message logic...")
             await self._handle_first_message(self.conversation)
 
+            print(f"   Sending push notification...")
             await self._send_message_notification(msg, self.conversation)
 
+            print(f"   Broadcasting message to group {self.group_name}...")
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -144,9 +191,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user2 = await async_get_user2()
             
             recipient = user1 if user2.id == self.current_user.id else user2
+            print(f"   Sending conversation update...")
             await self._send_conversation_update(recipient, msg, self.conversation)
+            print(f"   ✓ Message action complete\n")
 
         elif action == 'read_all':
+            print(f"   Processing read_all action...")
             # Mark all messages from other user as read
             updated_count = await self._mark_messages_read(self.conversation, self.current_user)
             
@@ -169,9 +219,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self._send_conversation_read_update(self.current_user, self.conversation)
 
         elif action == 'get_messages':
+            print(f"   Processing get_messages action...")
             # Send recent messages to the user
             limit = int(payload.get('limit', 50))
+            print(f"   Fetching {limit} recent messages...")
             messages = await self._get_recent_messages(self.conversation, limit)
+            print(f"   ✓ Retrieved {len(messages)} messages")
             
             await self.send(text_data=json.dumps({
                 'event': 'messages_history',
@@ -179,8 +232,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
 
         elif action == 'typing':
+            print(f"   Processing typing action...")
             # Broadcast typing indicator
             is_typing = payload.get('is_typing', False)
+            print(f"   is_typing: {is_typing}")
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -194,6 +249,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
     async def chat_message(self, event):
+        print(f"      [BROADCAST] Sending message event to user {self.current_user.id}")
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'event': 'message',
@@ -201,6 +257,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def chat_read(self, event):
+        print(f"      [BROADCAST] Sending read event to user {self.current_user.id}")
         # Send read status to WebSocket
         await self.send(text_data=json.dumps({
             'event': 'read',
@@ -208,6 +265,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def chat_typing(self, event):
+        print(f"      [BROADCAST] Sending typing event to user {self.current_user.id}")
         # Send typing indicator to WebSocket (but not to the user who is typing)
         if event['typing']['user_id'] != self.current_user.id:
             await self.send(text_data=json.dumps({
@@ -218,32 +276,47 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def _authenticate_token(self, token: str):
         """Authenticate user via JWT token"""
         if not token:
+            print(f"      [AUTH] No token provided")
             return None
         try:
+            print(f"      [AUTH] Decoding JWT token...")
             payload = jwt.decode(
                 token,
                 settings.SECRET_KEY,
                 algorithms=[settings.SIMPLE_JWT.get('ALGORITHM', 'HS256')],
                 options={'verify_aud': False}
             )
+            print(f"      [AUTH] ✓ Token decoded successfully")
             user_id = payload.get(settings.SIMPLE_JWT.get('USER_ID_CLAIM', 'user_id'))
             if not user_id:
+                print(f"      [AUTH] ❌ No user_id in token")
                 return None
+            print(f"      [AUTH] Fetching user {user_id}...")
             return await self._get_user(user_id)
-        except Exception:
+        except Exception as e:
+            print(f"      [AUTH] ❌ JWT decode failed: {str(e)}")
             return None
 
     async def _get_user(self, user_id):
         """Get user by ID"""
         from asgiref.sync import sync_to_async
-        return await sync_to_async(User.objects.get)(id=user_id)
+        print(f"      [GETUSER] Fetching user {user_id}...")
+        try:
+            user = await sync_to_async(User.objects.get)(id=user_id)
+            print(f"      [GETUSER] ✓ Found: {user.email}")
+            return user
+        except Exception as e:
+            print(f"      [GETUSER] ❌ Not found: {str(e)}")
+            raise
 
     async def _get_or_create_conversation(self, user1, user2):
         """Get or create conversation between two users"""
         from asgiref.sync import sync_to_async
         
+        print(f"      [CONV] Getting or creating conversation...")
         # Normalize order by IDs to avoid duplicates
         uid1, uid2 = sorted([user1.id, user2.id])
+        print(f"      [CONV] Normalized IDs: {uid1} <-> {uid2}")
         
         async_get_or_create = sync_to_async(
             lambda: Conversation.objects.get_or_create(
@@ -253,6 +326,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         
         conversation, created = await async_get_or_create()
+        status = "✓ Created" if created else "✓ Found"
+        print(f"      [CONV] {status} conversation: {conversation.id}")
         return conversation
 
     async def _create_message(self, conversation, sender, content):

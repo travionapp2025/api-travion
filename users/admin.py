@@ -91,9 +91,9 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user1', 'user2', 'created_at', 'updated_at')
-    search_fields = ('user1__email', 'user2__email')
-    list_filter = ('created_at', 'updated_at')
+    list_display = ('id', 'user1', 'user2', 'itinerary', 'created_at', 'updated_at')
+    search_fields = ('user1__email', 'user2__email', 'itinerary__title')
+    list_filter = ('itinerary', 'created_at', 'updated_at')
     ordering = ('-updated_at',)
 
 

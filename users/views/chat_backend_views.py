@@ -23,6 +23,7 @@ class ChatConnectionView(APIView):
         """
         try:
             other_user_id = request.data.get('other_user_id')
+            itinerary_id = request.data.get('itinerary_id') or request.query_params.get('itinerary_id')
             
             if not other_user_id:
                 return Response(
@@ -44,6 +45,16 @@ class ChatConnectionView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
+            itinerary = None
+            if itinerary_id:
+                try:
+                    itinerary = Itinerary.objects.get(id=itinerary_id, user=request.user)
+                except (Itinerary.DoesNotExist, ValueError):
+                    return Response(
+                        {'error': 'Itinerary not found or does not belong to you'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
             # Check if there's an active reporting restriction
             if ReportedUser.has_active_restriction(request.user, other_user):
                 return Response(
@@ -53,20 +64,27 @@ class ChatConnectionView(APIView):
 
             # Find existing conversation first (to avoid creating before limit check)
             uid1, uid2 = sorted([request.user.id, other_user.id])
-            conversation = Conversation.objects.filter(
+            conversation_filters = dict(
                 user1_id=uid1,
-                user2_id=uid2
-            ).first()
+                user2_id=uid2,
+            )
+            if itinerary:
+                conversation_filters['itinerary_id'] = itinerary.id
+            else:
+                conversation_filters['itinerary__isnull'] = True
+
+            conversation = Conversation.objects.filter(**conversation_filters).first()
 
             created = False
             if not conversation:
                 existing_used_conversation = Conversation.objects.filter(
                     Q(user1_id=request.user.id) | Q(user2_id=request.user.id),
-                    is_first_time=False
+                    is_first_time=False,
+                    **({'itinerary_id': itinerary.id} if itinerary else {})
                 ).exists()
 
                 if existing_used_conversation:
-                    has_paid_itinerary = Itinerary.objects.filter(user=request.user, is_paid=True).exists()
+                    has_paid_itinerary = itinerary.is_paid if itinerary else Itinerary.objects.filter(user=request.user, is_paid=True).exists()
                     if not has_paid_itinerary:
                         return Response(
                             {
@@ -78,7 +96,8 @@ class ChatConnectionView(APIView):
 
                 conversation = Conversation.objects.create(
                     user1_id=uid1,
-                    user2_id=uid2
+                    user2_id=uid2,
+                    itinerary=itinerary
                 )
                 created = True
 
@@ -110,6 +129,8 @@ class ChatConnectionView(APIView):
             ).exclude(sender=request.user).count()
 
             ws_url = f"ws://{settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS != ['*'] else 'localhost'}:8000/ws/chat/{other_user_id}/"
+            if itinerary:
+                ws_url = f"ws://{settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS != ['*'] else 'localhost'}:8000/ws/chat/{other_user_id}/itinerary/{itinerary.id}/"
 
             # Prepare other user data
             other_user_data = {
@@ -126,6 +147,7 @@ class ChatConnectionView(APIView):
                     'websocket_url': ws_url,
                     'conversation_id': conversation.id,
                     'other_user_id': other_user_id,
+                    'itinerary_id': itinerary.id if itinerary else None,
                     'requires_token': True,
                     'token_param': 'token'
                 },
@@ -162,7 +184,7 @@ class ChatConversationsView(APIView):
             # Get all conversations for the user
             conversations = Conversation.objects.filter(
                 Q(user1=request.user) | Q(user2=request.user)
-            ).select_related('user1', 'user2').order_by('-updated_at')
+            ).select_related('user1', 'user2', 'itinerary').order_by('-updated_at')
 
             conversations_data = []
             for conv in conversations:
@@ -189,6 +211,8 @@ class ChatConversationsView(APIView):
 
                 # Build WebSocket URL
                 ws_url = f"ws://{settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS != ['*'] else 'localhost'}:8000/ws/chat/{other_user.id}/"
+                if conv.itinerary_id:
+                    ws_url = f"ws://{settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS != ['*'] else 'localhost'}:8000/ws/chat/{other_user.id}/itinerary/{conv.itinerary_id}/"
 
                 # Prepare other user data
                 other_user_data = {
@@ -205,6 +229,7 @@ class ChatConversationsView(APIView):
                     'connection_info': {
                         'websocket_url': ws_url,
                         'other_user_id': other_user.id,
+                        'itinerary_id': conv.itinerary_id,
                         'requires_token': True
                     },
                     'last_message': {
@@ -215,6 +240,7 @@ class ChatConversationsView(APIView):
                         'sender_name': last_message.sender.full_name
                     } if last_message else None,
                     'unread_count': unread_count,
+                    'itinerary_id': conv.itinerary_id,
                     'is_first_time': conv.is_first_time,
                     'updated_at': conv.updated_at.isoformat()
                 })
@@ -316,6 +342,7 @@ class ChatMessageHistoryView(APIView):
             return Response({
                 'messages': messages_data,
                 'conversation_id': conversation_id,
+                'itinerary_id': conversation.itinerary_id,
                 'count': len(messages_data),
                 'has_more': has_more,
                 'next_cursor': next_cursor,

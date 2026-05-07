@@ -119,8 +119,9 @@ class MyTripsView(APIView):
                             'languages': [lang.name for lang in other_user.languages.all()],
                             'match_info': match_info,
                             'chat_connection': {
-                                'websocket_url': f"ws://localhost:8000/ws/chat/{other_user.id}/",
+                                'websocket_url': f"ws://localhost:8000/ws/chat/{other_user.id}/itinerary/{itinerary.id}/",
                                 'other_user_id': other_user.id,
+                                'itinerary_id': itinerary.id,
                                 'requires_token': True,
                                 'token_param': 'token'
                             }

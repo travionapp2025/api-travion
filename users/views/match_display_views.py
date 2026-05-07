@@ -160,10 +160,21 @@ class MatchesView(APIView):
                     }
                 }
 
+                current_itinerary_id = None
+                if match.provider_itinerary and match.provider_itinerary.user_id == request.user.id:
+                    current_itinerary_id = match.provider_itinerary.id
+                elif match.matched_provider_itinerary and match.matched_provider_itinerary.user_id == request.user.id:
+                    current_itinerary_id = match.matched_provider_itinerary.id
+
                 chat_connection = {
-                    'websocket_url': f"ws://localhost:8000/ws/chat/{other_user.id}/",
+                    'websocket_url': (
+                        f"ws://localhost:8000/ws/chat/{other_user.id}/itinerary/{current_itinerary_id}/"
+                        if current_itinerary_id
+                        else f"ws://localhost:8000/ws/chat/{other_user.id}/"
+                    ),
                     'group_name': f"chat_updates_{other_user.id}",
                     'other_user_id': other_user.id,
+                    'itinerary_id': current_itinerary_id,
                     'requires_token': True,
                     'token_param': 'token'
                 }

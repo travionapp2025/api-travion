@@ -15,7 +15,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"\n🔗 [CHAT_CONNECT] WebSocket connection attempt started")
         print(f"   Scope route: {self.scope.get('url_route', {})}")
         
-        self.other_user_id = self.scope['url_route']['kwargs'].get('other_user_id')
+        route_kwargs = self.scope['url_route']['kwargs']
+        self.other_user_id = route_kwargs.get('other_user_id')
+        self.itinerary_id = route_kwargs.get('itinerary_id')
         print(f"   Extracted other_user_id: {self.other_user_id}")
         
         if not self.other_user_id:
@@ -32,7 +34,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     if part.startswith('token='):
                         token = part.split('=', 1)[1]
                         print(f"   ✓ Token extracted (length: {len(token)})")
-                        break
+                    elif part.startswith('itinerary_id='):
+                        self.itinerary_id = part.split('=', 1)[1]
+                        print(f"   Itinerary ID extracted: {self.itinerary_id}")
         except Exception as e:
             print(f"   ⚠️ Error parsing query string: {str(e)}")
             token = None
@@ -47,6 +51,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close(code=4401)  
             return
         print(f"   ✓ User authenticated: {self.current_user.id} ({self.current_user.email})")
+
+        self.itinerary = None
+        if self.itinerary_id:
+            try:
+                print(f"   Fetching itinerary {self.itinerary_id} for current user...")
+                self.itinerary = await self._get_user_itinerary(self.itinerary_id, self.current_user)
+                print(f"   Itinerary found: {self.itinerary.id} (paid={self.itinerary.is_paid})")
+            except Exception as e:
+                print(f"   Itinerary not found for current user: {str(e)} - closing connection (4404)")
+                await self.close(code=4404)
+                return
 
         try:
             print(f"   Fetching other user {self.other_user_id}...")
@@ -66,11 +81,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from asgiref.sync import sync_to_async
 
         print(f"   Checking for existing conversation...")
+        existing_filters = {
+            'user1_id': min(self.current_user.id, self.other_user.id),
+            'user2_id': max(self.current_user.id, self.other_user.id),
+        }
+        if self.itinerary:
+            existing_filters['itinerary_id'] = self.itinerary.id
+        else:
+            existing_filters['itinerary__isnull'] = True
+
         async_get_existing = sync_to_async(
-            lambda: Conversation.objects.filter(
-                user1_id=min(self.current_user.id, self.other_user.id),
-                user2_id=max(self.current_user.id, self.other_user.id)
-            ).first()
+            lambda: Conversation.objects.filter(**existing_filters).first()
         )
         existing_conversation = await async_get_existing()
 
@@ -82,7 +103,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             async_has_used_chat = sync_to_async(
                 lambda: Conversation.objects.filter(
                     Q(user1_id=self.current_user.id) | Q(user2_id=self.current_user.id),
-                    is_first_time=False
+                    is_first_time=False,
+                    **({'itinerary_id': self.itinerary.id} if self.itinerary else {})
                 ).exists()
             )
             has_used_free_chat = await async_has_used_chat()
@@ -90,10 +112,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             if has_used_free_chat:
                 print(f"   Checking for paid itinerary (first chat is free, next requires payment)...")
-                async_paid = sync_to_async(
-                    lambda: Itinerary.objects.filter(user=self.current_user, is_paid=True).exists()
-                )
-                has_paid_itinerary = await async_paid()
+                if self.itinerary:
+                    has_paid_itinerary = self.itinerary.is_paid
+                else:
+                    async_paid = sync_to_async(
+                        lambda: Itinerary.objects.filter(user=self.current_user, is_paid=True).exists()
+                    )
+                    has_paid_itinerary = await async_paid()
                 print(f"   Has paid itinerary: {has_paid_itinerary}")
                 if not has_paid_itinerary:
                     print(f"   ❌ No paid itinerary - closing connection (4403 Payment Required)")
@@ -101,7 +126,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     return
 
             print(f"   ✓ Creating new conversation...")
-            self.conversation = await self._get_or_create_conversation(self.current_user, self.other_user)
+            self.conversation = await self._get_or_create_conversation(self.current_user, self.other_user, self.itinerary)
             print(f"   ✓ Conversation created/retrieved: {self.conversation.id}")
         
         self.group_name = f"chat_{self.conversation.id}"
@@ -121,7 +146,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'full_name': self.other_user.full_name,
                 'role': self.other_user.role,
                 'profile_picture': self.other_user.profile_picture.url if self.other_user.profile_picture else None
-            }
+            },
+            'itinerary_id': self.itinerary.id if self.itinerary else None
         }))
         print(f"\n✅ [CHAT_CONNECT] Connection successful for user {self.current_user.id} <-> {self.other_user.id}\n")
 
@@ -309,7 +335,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"      [GETUSER] ❌ Not found: {str(e)}")
             raise
 
-    async def _get_or_create_conversation(self, user1, user2):
+    async def _get_user_itinerary(self, itinerary_id, user):
+        """Get an itinerary owned by the current user."""
+        from asgiref.sync import sync_to_async
+        return await sync_to_async(Itinerary.objects.get)(id=itinerary_id, user=user)
+
+    async def _get_or_create_conversation(self, user1, user2, itinerary=None):
         """Get or create conversation between two users"""
         from asgiref.sync import sync_to_async
         
@@ -317,11 +348,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Normalize order by IDs to avoid duplicates
         uid1, uid2 = sorted([user1.id, user2.id])
         print(f"      [CONV] Normalized IDs: {uid1} <-> {uid2}")
+        lookup = {
+            'user1_id': uid1,
+            'user2_id': uid2,
+        }
+        if itinerary:
+            lookup['itinerary_id'] = itinerary.id
+        else:
+            lookup['itinerary__isnull'] = True
+        defaults = {'itinerary': itinerary} if itinerary else {}
         
         async_get_or_create = sync_to_async(
             lambda: Conversation.objects.get_or_create(
-                user1_id=uid1, 
-                user2_id=uid2
+                **lookup,
+                defaults=defaults
             )
         )
         

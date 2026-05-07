@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from .user import User
+from .itinerary import Itinerary
 
 
 class Conversation(models.Model):
@@ -10,13 +11,22 @@ class Conversation(models.Model):
     """
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_as_user1')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_as_user2')
+    itinerary = models.ForeignKey(Itinerary, on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
     is_first_time = models.BooleanField(default=True, help_text="True if this is the first conversation between these users")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user1', 'user2'], name='unique_conversation_pair'),
+            models.UniqueConstraint(
+                fields=['user1', 'user2'],
+                condition=models.Q(itinerary__isnull=True),
+                name='unique_conversation_pair_without_itinerary'
+            ),
+            models.UniqueConstraint(
+                fields=['user1', 'user2', 'itinerary'],
+                name='unique_conversation_pair_per_itinerary'
+            ),
         ]
         ordering = ['-updated_at']
         verbose_name = 'Conversation'

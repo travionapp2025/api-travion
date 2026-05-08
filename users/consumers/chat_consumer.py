@@ -55,22 +55,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.itinerary = None
         if self.itinerary_id:
             try:
-                print(f"   Fetching itinerary {self.itinerary_id} for current user...")
-                self.itinerary = await self._get_user_itinerary(self.itinerary_id, self.current_user)
-                print(f"   Itinerary found: {self.itinerary.id} (paid={self.itinerary.is_paid})")
+                print(f"   Fetching itinerary {self.itinerary_id} for either user...")
+                # Need to fetch other user first to validate itinerary ownership
+                print(f"   Fetching other user {self.other_user_id}...")
+                self.other_user = await self._get_user(self.other_user_id)
+                print(f"   ✓ Other user found: {self.other_user.id} ({self.other_user.email})")
+                
+                self.itinerary = await self._get_itinerary_for_conversation(self.itinerary_id, self.current_user.id, self.other_user.id)
+                print(f"   ✓ Itinerary found: {self.itinerary.id} (owner: {self.itinerary.user.id}, paid={self.itinerary.is_paid})")
             except Exception as e:
-                print(f"   Itinerary not found for current user: {str(e)} - closing connection (4404)")
+                print(f"   ❌ Itinerary not found or invalid: {str(e)} - closing connection (4404)")
                 await self.close(code=4404)
                 return
-
-        try:
-            print(f"   Fetching other user {self.other_user_id}...")
-            self.other_user = await self._get_user(self.other_user_id)
-            print(f"   ✓ Other user found: {self.other_user.id} ({self.other_user.email})")
-        except Exception as e:
-            print(f"   ❌ Other user not found: {str(e)} - closing connection (4404)")
-            await self.close(code=4404)  
-            return
+        else:
+            try:
+                print(f"   Fetching other user {self.other_user_id}...")
+                self.other_user = await self._get_user(self.other_user_id)
+                print(f"   ✓ Other user found: {self.other_user.id} ({self.other_user.email})")
+            except Exception as e:
+                print(f"   ❌ Other user not found: {str(e)} - closing connection (4404)")
+                await self.close(code=4404)
+                return
 
         # Prevent self-chat (disabled for testing)
         # if self.current_user.id == int(self.other_user_id):
@@ -335,10 +340,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"      [GETUSER] ❌ Not found: {str(e)}")
             raise
 
-    async def _get_user_itinerary(self, itinerary_id, user):
-        """Get an itinerary owned by the current user."""
+    async def _get_itinerary_for_conversation(self, itinerary_id, user1_id, user2_id):
+        """Get an itinerary that belongs to either user in the conversation."""
         from asgiref.sync import sync_to_async
-        return await sync_to_async(Itinerary.objects.get)(id=itinerary_id, user=user)
+        
+        async_get = sync_to_async(
+            lambda: Itinerary.objects.select_related('user').get(id=itinerary_id, user__in=[user1_id, user2_id])
+        )
+        
+        try:
+            return await async_get()
+        except Itinerary.DoesNotExist:
+            raise Exception(f"Itinerary {itinerary_id} not found or does not belong to either user")
 
     async def _get_or_create_conversation(self, user1, user2, itinerary=None):
         """Get or create conversation between two users"""

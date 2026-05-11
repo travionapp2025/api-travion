@@ -19,6 +19,7 @@ class Itinerary(models.Model):
     travel_type = models.CharField(max_length=20, choices=TRAVEL_TYPE_CHOICES, default='one_way')
     is_paid = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True, help_text="Available to provide services")
+    is_first_trip = models.BooleanField(default=False, help_text="True if this is the creator's first itinerary (free for both parties)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -29,7 +30,12 @@ class Itinerary(models.Model):
     
     def __str__(self):
         return f"{self.user.full_name} - {self.title}"
-    
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            self.is_first_trip = not Itinerary.objects.filter(user_id=self.user_id).exists()
+        super().save(*args, **kwargs)
+
     @property
     def total_segments(self):
         return self.segments.count()

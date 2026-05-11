@@ -45,6 +45,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     subscription_status = models.CharField(max_length=20, blank=True, null=True)
     subscription_current_period_end = models.DateTimeField(blank=True, null=True)
 
+    has_used_free_seek = models.BooleanField(default=False, help_text="True once the seeker has used their one free connection")
+
     is_active = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)

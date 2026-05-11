@@ -850,6 +850,65 @@ class VerifySubscription(APIView):
             )
 
 
+class VerifyItineraryPayment(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from users.models import ItineraryPayment
+        from payments.utils.google_product_verify import verify_google_one_time_product
+        from django.utils import timezone as tz
+
+        user = request.user
+        itinerary_id = request.data.get("itinerary_id")
+        purchase_id = request.data.get("purchase_id")
+        product_id = request.data.get("product_id")
+        role = request.data.get("role", "seeker")
+
+        if not all([itinerary_id, purchase_id, product_id]):
+            return Response(
+                {"message": "itinerary_id, purchase_id and product_id are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        package_name = getattr(settings, "GOOGLE_PACKAGE_NAME", "")
+        raw_response, google_status = verify_google_one_time_product(
+            package_name, product_id, purchase_id
+        )
+
+        if google_status != "paid":
+            logger.warning(
+                "Itinerary Google payment verification failed",
+                extra={"user_id": user.id, "itinerary_id": itinerary_id},
+            )
+            return Response(
+                {"message": "Payment could not be verified with Google"},
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+
+        payment, _ = ItineraryPayment.objects.update_or_create(
+            itinerary_id=itinerary_id,
+            user=user,
+            defaults={
+                "status": "paid",
+                "platform": "google",
+                "purchase_id": purchase_id,
+                "paid_at": tz.now(),
+                "role": role,
+            },
+        )
+
+        logger.info(
+            "Itinerary payment verified",
+            extra={"user_id": user.id, "itinerary_id": itinerary_id, "payment_id": payment.id},
+        )
+
+        return Response({
+            "status": "paid",
+            "payment_id": payment.id,
+            "itinerary_id": itinerary_id,
+        })
+
+
 class AppleSubscriptionWebhook(APIView):
     authentication_classes = []
     permission_classes = []

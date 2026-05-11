@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.db.models import Q
-from users.models import User, Conversation, Message, ReportedUser, BlockedUser, Itinerary
+from users.models import User, Conversation, Message, ReportedUser, BlockedUser, Itinerary, ItineraryPayment
 from django.conf import settings
 import json
 
@@ -48,11 +48,28 @@ class ChatConnectionView(APIView):
             itinerary = None
             if itinerary_id:
                 try:
-                    itinerary = Itinerary.objects.get(id=itinerary_id, user=request.user)
+                    itinerary = Itinerary.objects.get(id=itinerary_id)
                 except (Itinerary.DoesNotExist, ValueError):
                     return Response(
-                        {'error': 'Itinerary not found or does not belong to you'},
+                        {'error': 'Itinerary not found'},
                         status=status.HTTP_404_NOT_FOUND
+                    )
+
+                has_paid = ItineraryPayment.objects.filter(
+                    user=request.user,
+                    itinerary=itinerary,
+                    status__in=('paid', 'free'),
+                ).exists()
+
+                if not has_paid:
+                    return Response(
+                        {
+                            'error': 'payment_required',
+                            'status': 'false',
+                            'message': 'Payment is required to chat for this itinerary.',
+                            'itinerary_id': itinerary.id,
+                        },
+                        status=status.HTTP_402_PAYMENT_REQUIRED,
                     )
 
             # Check if there's an active reporting restriction

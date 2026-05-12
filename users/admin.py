@@ -5,23 +5,32 @@ from .models.chat import Conversation, Message
 from .models.match import Match
 from .models.itinerary import Itinerary, TravelSegment, SeekerRequest
 from .models.itinerary_payment import ItineraryPayment
+from .models import Airport
 
+@admin.register(Airport)
+class AirportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'iata_code', 'icao_code', 'municipality', 'iso_country', 'type', 'created_at')
+    search_fields = ('name', 'iata_code', 'icao_code', 'municipality', 'iso_country')
+    list_filter = ('type', 'continent', 'iso_country', 'created_at')
+    ordering = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = (
-        'email', 
-        'firstname', 
-        'lastname', 
+        'email',
+        'firstname',
+        'lastname',
         'full_name',
-        'phonenumber', 
-        'role', 
+        'phonenumber',
+        'role',
         'gender',
         'subscription_type',
         'subscription_status',
         'stripe_customer_id',
-        'is_active', 
-        'is_staff', 
+        'has_used_free_seek',
+        'is_active',
+        'is_staff',
         'date_joined',
         'updated_at'
     )
@@ -149,7 +158,7 @@ class TravelSegmentInline(admin.TabularInline):
 
 @admin.register(Itinerary)
 class ItineraryAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'title', 'travel_type', 'is_available', 'created_at', 'updated_at')
+    list_display = ('id', 'user', 'title', 'travel_type', 'is_available', 'is_first_trip', 'created_at', 'updated_at')
     search_fields = ('user__email', 'title')
     list_filter = ('travel_type', 'is_available', 'created_at', 'updated_at')
     ordering = ('-created_at',)

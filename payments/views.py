@@ -863,6 +863,7 @@ class VerifyItineraryPayment(APIView):
         purchase_id = request.data.get("purchase_id")
         product_id = request.data.get("product_id")
         role = request.data.get("role", "seeker")
+        print(request.data, "flutter data -------------")
 
         if not all([itinerary_id, purchase_id, product_id]):
             return Response(
@@ -871,10 +872,12 @@ class VerifyItineraryPayment(APIView):
             )
 
         package_name = getattr(settings, "GOOGLE_PACKAGE_NAME", "")
+        print(package_name)
         raw_response, google_status = verify_google_one_time_product(
             package_name, product_id, purchase_id
         )
 
+        print(raw_response)
         if google_status != "paid":
             logger.warning(
                 "Itinerary Google payment verification failed",

@@ -22,6 +22,8 @@ class ChatConnectionView(APIView):
         Body: {"other_user_id": 123}
         """
         try:
+            user = request.user.id
+            print(user)
             other_user_id = request.data.get('other_user_id')
             itinerary_id = request.data.get('itinerary_id') or request.query_params.get('itinerary_id')
             

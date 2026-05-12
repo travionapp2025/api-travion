@@ -4,6 +4,7 @@ from .models import User
 from .models.chat import Conversation, Message
 from .models.match import Match
 from .models.itinerary import Itinerary, TravelSegment, SeekerRequest
+from .models.itinerary_payment import ItineraryPayment
 
 
 @admin.register(User)
@@ -180,3 +181,12 @@ class SeekerRequestAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'title', 'is_active', 'from_airport', 'to_airport', 'departure_date_from', 'departure_date_to', 'departure_time_from', 'departure_time_to', 'expires_at', 'created_at', 'updated_at')
     search_fields = ('user__email', 'title', 'from_airport', 'to_airport')
     list_filter = ('is_active', 'created_at', 'updated_at')
+
+
+@admin.register(ItineraryPayment)
+class ItineraryPaymentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'itinerary', 'role', 'status', 'platform', 'purchase_id', 'paid_at', 'created_at')
+    search_fields = ('user__email', 'user__phonenumber', 'purchase_id', 'itinerary__id')
+    list_filter = ('status', 'role', 'platform', 'created_at')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')

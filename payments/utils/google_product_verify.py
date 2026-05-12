@@ -2,6 +2,7 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
 from django.conf import settings
 
+print("222222222222",settings.GOOGLE_PLAY_JSON_PATH)
 
 def verify_google_one_time_product(package_name: str, product_id: str, purchase_token: str):
     """
@@ -25,6 +26,7 @@ def verify_google_one_time_product(package_name: str, product_id: str, purchase_
         )
 
         response = session.get(url, timeout=10)
+        print(response.text)
 
         if response.status_code != 200:
             return None, "failed"

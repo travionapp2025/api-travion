@@ -863,6 +863,8 @@ class VerifyItineraryPayment(APIView):
         purchase_id = request.data.get("purchase_id")
         product_id = request.data.get("product_id")
         role = request.data.get("role", "seeker")
+        receipt = request.data.get("receipt")
+        
         print(request.data, "flutter data -------------")
 
         if not all([itinerary_id, purchase_id, product_id]):

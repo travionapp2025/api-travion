@@ -867,7 +867,7 @@ class VerifyItineraryPayment(APIView):
         
         print(request.data, "flutter data -------------")
 
-        if not all([itinerary_id, purchase_id, product_id]):
+        if not all([itinerary_id, receipt, product_id]):
             return Response(
                 {"message": "itinerary_id, purchase_id and product_id are required"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -876,7 +876,7 @@ class VerifyItineraryPayment(APIView):
         package_name = getattr(settings, "GOOGLE_PACKAGE_NAME", "")
         print(package_name)
         raw_response, google_status = verify_google_one_time_product(
-            package_name, product_id, purchase_id
+            package_name, product_id, receipt
         )
 
         print(raw_response)
@@ -896,7 +896,7 @@ class VerifyItineraryPayment(APIView):
             defaults={
                 "status": "paid",
                 "platform": "google",
-                "purchase_id": purchase_id,
+                "purchase_id": receipt,
                 "paid_at": tz.now(),
                 "role": role,
             },

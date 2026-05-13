@@ -211,6 +211,7 @@ class FirebaseService:
             'conversation_created_at': conversation.created_at.isoformat(),
             'action': 'open_chat',
             'message_preview': message.content[:100] + "..." if len(message.content) > 100 else message.content,
+            'itinerary_id': str(conversation.itinerary.id) if conversation.itinerary else None,
             # Add recipient context for frontend routing
             'recipient_user_id': str(recipient.id),
             'recipient_user_email': recipient.email,
@@ -288,6 +289,7 @@ class FirebaseService:
                 'chat_websocket_url': f'/ws/chat-updates/?token={{user_token}}',
                 'chat_api_base_url': '/api/users/',
                 'conversation_id': notification.data.get('conversation_id') if notification.data else None,
+                'itinerary_id': notification.data.get('itinerary_id') if notification.data else None,
                 'action': 'open_chat' if notification.notification_type == 'chat_message' else 'view_match'
             }
             

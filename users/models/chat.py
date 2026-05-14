@@ -119,8 +119,25 @@ class Message(models.Model):
 
         super().save(*args, **kwargs)
 
-        if is_new and not self.sender.has_used_free_seek:
-            User.objects.filter(pk=self.sender.pk).update(has_used_free_seek=True)
+        if is_new:
+            if not self.sender.has_used_free_seek:
+                User.objects.filter(pk=self.sender.pk).update(
+                    has_used_free_seek=True
+                )
+
+            conversation = self.conversation
+            itinerary = conversation.itinerary
+
+            if itinerary:
+                if self.sender_id == itinerary.user_id:
+                    conversation.is_free_for_creator = False
+                else:
+                    conversation.is_free_for_seeker = False
+
+                conversation.save(update_fields=[
+                    'is_free_for_creator',
+                    'is_free_for_seeker'
+                ])
 
     class Meta:
         ordering = ['created_at']

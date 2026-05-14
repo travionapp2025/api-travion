@@ -113,6 +113,15 @@ class Message(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     is_read = models.BooleanField(default=False)
 
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
+        super().save(*args, **kwargs)
+
+        if is_new and not self.sender.has_used_free_seek:
+            User.objects.filter(pk=self.sender.pk).update(has_used_free_seek=True)
+
     class Meta:
         ordering = ['created_at']
         verbose_name = 'Message'

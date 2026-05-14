@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from firebase_admin import auth
-from users.models import User
+from users.models import DeviceToken, User
 from rest_framework.permissions import IsAuthenticated
 
 
@@ -14,6 +14,8 @@ class SignupView(APIView):
     def post(self, request):
         id_token = request.data.get('id_token')
         phone = str(request.data.get('phonenumber') or '').strip()
+        fcm_token = str(request.data.get('fcm_token') or '').strip()
+        device_type = str(request.data.get('device_type') or 'android').strip()
 
         if not id_token or not phone:
             return Response(
@@ -65,6 +67,16 @@ class SignupView(APIView):
             user = User.objects.create(
                 phonenumber=normalized_phone
             )
+
+            if fcm_token and len(fcm_token) >= 10:
+                DeviceToken.objects.update_or_create(
+                    user=user,
+                    token=fcm_token,
+                    defaults={
+                        'device_type': device_type,
+                        'is_active': True
+                    }
+                )
 
             if not user.is_active or user.is_deleted:
                 return Response(

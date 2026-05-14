@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-t37p&c+cler_9hr5^q@7&7836)ol_!urx&*g+iwl74l*80ewbx
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "travion.signaturetechllc.com"
+    "travion.signaturetechllc.com",
     "signaturetechllc.com",
     "www.signaturetechllc.com",
     "127.0.0.1",
@@ -39,6 +39,7 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://travion.signaturetechllc.com"
     "https://signaturetechllc.com",
     "https://www.signaturetechllc.com",
 ]

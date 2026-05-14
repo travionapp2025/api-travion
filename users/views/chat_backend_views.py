@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.db.models import Q
-from users.models import User, Conversation, Message, ReportedUser, BlockedUser, Itinerary
+from users.models import User, Conversation, Message, ReportedUser, BlockedUser, Itinerary, ItineraryPayment
 from django.conf import settings
 import json
 
@@ -22,6 +22,8 @@ class ChatConnectionView(APIView):
         Body: {"other_user_id": 123}
         """
         try:
+            user = request.user.id
+            print(user)
             other_user_id = request.data.get('other_user_id')
             itinerary_id = request.data.get('itinerary_id') or request.query_params.get('itinerary_id')
             
@@ -46,14 +48,53 @@ class ChatConnectionView(APIView):
                 )
 
             itinerary = None
+            is_free_connection = False
+            is_paid_connection = False
             if itinerary_id:
                 try:
-                    itinerary = Itinerary.objects.get(id=itinerary_id, user=request.user)
+                    itinerary = Itinerary.objects.get(id=itinerary_id)
                 except (Itinerary.DoesNotExist, ValueError):
                     return Response(
-                        {'error': 'Itinerary not found or does not belong to you'},
+                        {'error': 'Itinerary not found'},
                         status=status.HTTP_404_NOT_FOUND
                     )
+
+                is_creator = itinerary.user_id == request.user.id
+                payment = ItineraryPayment.objects.filter(
+                    user=request.user,
+                    itinerary=itinerary,
+                ).first()
+
+                if payment:
+                    if not payment.is_settled:
+                        return Response(
+                            {
+                                'error': 'payment_required',
+                                'status': 'false',
+                                'message': 'Payment is required to chat for this itinerary.',
+                                'itinerary_id': itinerary.id,
+                            },
+                            status=status.HTTP_402_PAYMENT_REQUIRED,
+                        )
+                    is_free_connection = (payment.status == 'free')
+                    is_paid_connection = (payment.status == 'paid')
+                else:
+                    # No payment record yet — check if this connection is free
+                    if is_creator:
+                        is_free_connection = itinerary.is_first_trip
+                    else:
+                        is_free_connection = not request.user.has_used_free_seek
+
+                    if not is_free_connection:
+                        return Response(
+                            {
+                                'error': 'payment_required',
+                                'status': 'false',
+                                'message': 'Payment is required to chat for this itinerary.',
+                                'itinerary_id': itinerary.id,
+                            },
+                            status=status.HTTP_402_PAYMENT_REQUIRED,
+                        )
 
             # Check if there's an active reporting restriction
             if ReportedUser.has_active_restriction(request.user, other_user):
@@ -77,23 +118,6 @@ class ChatConnectionView(APIView):
 
             created = False
             if not conversation:
-                existing_used_conversation = Conversation.objects.filter(
-                    Q(user1_id=request.user.id) | Q(user2_id=request.user.id),
-                    is_first_time=False,
-                    **({'itinerary_id': itinerary.id} if itinerary else {})
-                ).exists()
-
-                if existing_used_conversation:
-                    has_paid_itinerary = itinerary.is_paid if itinerary else Itinerary.objects.filter(user=request.user, is_paid=True).exists()
-                    if not has_paid_itinerary:
-                        return Response(
-                            {
-                                'error': 'payment_required',
-                                'message': 'First chat is free. Additional chats require a paid itinerary.'
-                            },
-                            status=status.HTTP_402_PAYMENT_REQUIRED
-                        )
-
                 conversation = Conversation.objects.create(
                     user1_id=uid1,
                     user2_id=uid2,
@@ -158,7 +182,9 @@ class ChatConnectionView(APIView):
                     'updated_at': conversation.updated_at.isoformat(),
                     'is_new': created,
                     'unread_count': unread_count,
-                    'recent_messages': messages_data
+                    'recent_messages': messages_data,
+                    'is_free': is_free_connection,
+                    'is_paid': is_paid_connection,
                 }
             }, status=status.HTTP_200_OK)
 

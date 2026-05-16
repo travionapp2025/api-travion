@@ -45,14 +45,8 @@ class ItineraryListView(APIView):
         return False
 
     def get_permissions(self):
-        """Allow anonymous POST search requests while requiring auth for saved itinerary creation."""
         if self.request.method == 'POST':
-            try:
-                data = self.request.data if hasattr(self.request, 'data') else json.loads(self.request.body)
-                if not self._parse_bool(data.get('save_itinerary', True)):
-                    return []
-            except Exception:
-                pass
+            return []
         return [permission() for permission in self.permission_classes]
 
     def _check_duplicate_itinerary(self, user, segments_data):
@@ -227,32 +221,45 @@ class ItineraryListView(APIView):
         """Create a new itinerary with segments or search for matches without saving"""
         try:
             data = request.data if hasattr(request, 'data') else json.loads(request.body)
-            
+            is_authenticated = request.user and request.user.is_authenticated
+
             title = data.get('title', '').strip()
             travel_type = data.get('travel_type', 'one_way')
             is_available = data.get('is_available', True)
             segments_data = data.get('segments', [])
-            save_itinerary = self._parse_bool(data.get('save_itinerary', True)) 
-            
+            save_itinerary = self._parse_bool(data.get('save_itinerary', True)) and is_authenticated
+
             errors = {}
-            
-            if not title:
+
+            if is_authenticated and not title:
                 errors['title'] = 'Title is required'
-            
+
             if travel_type not in ['one_way', 'round_trip', 'multi_city']:
                 errors['travel_type'] = 'Invalid travel type'
-            
+
             if not segments_data or len(segments_data) == 0:
                 errors['segments'] = 'At least one travel segment is required'
-            
+
             for i, segment in enumerate(segments_data):
                 segment_errors = self._validate_segment(segment, i)
                 if segment_errors:
                     errors[f'segment_{i}'] = segment_errors
-            
+
             if errors:
                 return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+            # Anonymous users always get search-only behaviour
+            if not is_authenticated:
+                matches = self._search_matches_from_segments(segments_data)
+                logger.info(f"Anonymous search completed, {len(matches)} matches found.")
+                return Response({
+                    'message': 'Route search completed successfully!',
+                    'status': 'searched',
+                    'saved': False,
+                    'matching_status': 'completed',
+                    'matches': matches
+                }, status=status.HTTP_200_OK)
+
             # Check for duplicate itinerary if saving (toggle is on)
             if save_itinerary:
                 existing_itinerary = self._check_duplicate_itinerary(request.user, segments_data)
@@ -272,8 +279,7 @@ class ItineraryListView(APIView):
                     is_available=is_available
                 )
                 itinerary.save()
-               
-                # Create segments
+
                 segment_objects = []
                 for i, segment_data in enumerate(segments_data):
                     departure_date_from = datetime.strptime(segment_data['departure_date_from'], '%Y-%m-%d').date()
@@ -281,7 +287,7 @@ class ItineraryListView(APIView):
                     departure_time_from = datetime.strptime(segment_data['departure_time_from'], '%H:%M').time() if segment_data.get('departure_time_from') else None
                     departure_time_to = datetime.strptime(segment_data['departure_time_to'], '%H:%M').time() if segment_data.get('departure_time_to') else None
                     layovers = self._sanitize_layovers(segment_data.get('layovers'))
-                    
+
                     segment = TravelSegment.objects.create(
                         itinerary=itinerary,
                         from_airport=segment_data['from_airport'].upper(),
@@ -297,7 +303,7 @@ class ItineraryListView(APIView):
                     )
                     segment_objects.append(segment)
             else:
-                # Search-only path does not create a saved itinerary
+                # Authenticated user requested search-only (save_itinerary=false)
                 matches = self._search_matches_from_segments(segments_data)
 
             # Find matches
@@ -402,9 +408,10 @@ class ItineraryListView(APIView):
         except ValueError as e:
             return Response({'error': f'Invalid date/time format: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Error creating itinerary for user {request.user.id}: {str(e)}")
+            user_id = request.user.id if (request.user and request.user.is_authenticated) else 'anonymous'
+            logger.error(f"Error creating itinerary for user {user_id}: {str(e)}")
             return Response(
-                {'error': 'Failed to create itinerary'}, 
+                {'error': 'Failed to create itinerary'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

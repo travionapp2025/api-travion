@@ -856,9 +856,11 @@ class VerifyItineraryPayment(APIView):
     def post(self, request):
         from users.models import ItineraryPayment
         from payments.utils.google_product_verify import verify_google_one_time_product
+        from payments.utils.apple_verify import verify_apple_one_time_product
         from django.utils import timezone as tz
 
         user = request.user
+        platform = request.data.get("platform", "google").lower()
         itinerary_id = request.data.get("itinerary_id")
         purchase_id = request.data.get("purchase_id")
         product_id = request.data.get("product_id")
@@ -873,45 +875,137 @@ class VerifyItineraryPayment(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        package_name = getattr(settings, "GOOGLE_PACKAGE_NAME", "")
-        print(package_name)
-        raw_response, google_status = verify_google_one_time_product(
-            package_name, product_id, receipt
-        )
+        if platform in ["ios", "apple"]:
+            logger.info(
+                "Starting Apple one-time product verification for itinerary",
+                extra={
+                    "user_id": user.id,
+                    "itinerary_id": itinerary_id,
+                    "product_id": product_id,
+                },
+            )
 
-        print(raw_response)
-        if google_status != "paid":
+            try:
+                raw_response, apple_status = verify_apple_one_time_product(
+                    product_id=product_id,
+                    receipt=receipt,
+                    purchase_id=purchase_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Apple one-time product verification failed",
+                    extra={"user_id": user.id, "itinerary_id": itinerary_id, "purchase_id": purchase_id},
+                )
+                return Response(
+                    {"message": "Payment could not be verified with Apple"},
+                    status=status.HTTP_402_PAYMENT_REQUIRED,
+                )
+
+            if apple_status != "paid":
+                logger.warning(
+                    "Itinerary Apple payment verification failed",
+                    extra={"user_id": user.id, "itinerary_id": itinerary_id, "purchase_id": purchase_id},
+                )
+                return Response(
+                    {"message": "Payment could not be verified with Apple"},
+                    status=status.HTTP_402_PAYMENT_REQUIRED,
+                )
+
+            # Get transaction ID from decoded data
+            transaction_id = (
+                raw_response.get("transaction_id")
+                or raw_response.get("transactionId")
+                or raw_response.get("original_transaction_id")
+                or raw_response.get("originalTransactionId")
+                or purchase_id
+                or receipt
+            )
+
+            payment, _ = ItineraryPayment.objects.update_or_create(
+                itinerary_id=itinerary_id,
+                user=user,
+                defaults={
+                    "status": "paid",
+                    "platform": "apple",
+                    "purchase_id": transaction_id,
+                    "paid_at": tz.now(),
+                    "role": role,
+                },
+            )
+
+            logger.info(
+                "Itinerary Apple payment verified",
+                extra={"user_id": user.id, "itinerary_id": itinerary_id, "payment_id": payment.id},
+            )
+
+            return Response({
+                "status": "paid",
+                "payment_id": payment.id,
+                "itinerary_id": itinerary_id,
+            })
+
+        # ==========================================================
+        # 🤖 GOOGLE ONE-TIME PRODUCT
+        # ==========================================================
+        elif platform in ["android", "google"]:
+            logger.info(
+                "Starting Google one-time product verification for itinerary",
+                extra={
+                    "user_id": user.id,
+                    "itinerary_id": itinerary_id,
+                    "product_id": product_id,
+                },
+            )
+
+            package_name = getattr(settings, "GOOGLE_PACKAGE_NAME", "")
+            print(package_name)
+            raw_response, google_status = verify_google_one_time_product(
+                package_name, product_id, receipt
+            )
+
+            print(raw_response)
+            if google_status != "paid":
+                logger.warning(
+                    "Itinerary Google payment verification failed",
+                    extra={"user_id": user.id, "itinerary_id": itinerary_id},
+                )
+                return Response(
+                    {"message": "Payment could not be verified with Google"},
+                    status=status.HTTP_402_PAYMENT_REQUIRED,
+                )
+
+            payment, _ = ItineraryPayment.objects.update_or_create(
+                itinerary_id=itinerary_id,
+                user=user,
+                defaults={
+                    "status": "paid",
+                    "platform": "google",
+                    "purchase_id": receipt,
+                    "paid_at": tz.now(),
+                    "role": role,
+                },
+            )
+
+            logger.info(
+                "Itinerary payment verified",
+                extra={"user_id": user.id, "itinerary_id": itinerary_id, "payment_id": payment.id},
+            )
+
+            return Response({
+                "status": "paid",
+                "payment_id": payment.id,
+                "itinerary_id": itinerary_id,
+            })
+
+        else:
             logger.warning(
-                "Itinerary Google payment verification failed",
-                extra={"user_id": user.id, "itinerary_id": itinerary_id},
+                "Unsupported platform for itinerary payment",
+                extra={"user_id": user.id, "platform": platform},
             )
             return Response(
-                {"message": "Payment could not be verified with Google"},
-                status=status.HTTP_402_PAYMENT_REQUIRED,
+                {"message": "Unsupported platform"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        payment, _ = ItineraryPayment.objects.update_or_create(
-            itinerary_id=itinerary_id,
-            user=user,
-            defaults={
-                "status": "paid",
-                "platform": "google",
-                "purchase_id": receipt,
-                "paid_at": tz.now(),
-                "role": role,
-            },
-        )
-
-        logger.info(
-            "Itinerary payment verified",
-            extra={"user_id": user.id, "itinerary_id": itinerary_id, "payment_id": payment.id},
-        )
-
-        return Response({
-            "status": "paid",
-            "payment_id": payment.id,
-            "itinerary_id": itinerary_id,
-        })
 
 
 class AppleSubscriptionWebhook(APIView):

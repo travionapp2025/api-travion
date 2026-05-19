@@ -81,7 +81,17 @@ class ChatConnectionView(APIView):
                 else:
                     # No payment record yet — check if this connection is free
                     if is_creator:
-                        is_free_connection = itinerary.is_first_trip
+                        if not itinerary.is_first_trip:
+                            return Response(
+                                {
+                                    'error': 'payment_required',
+                                    'status': 'false',
+                                    'message': 'Payment is required to chat for this itinerary.',
+                                    'itinerary_id': itinerary.id,
+                                },
+                                status=status.HTTP_402_PAYMENT_REQUIRED,
+                            )
+                        is_free_connection = True
                     else:
                         is_free_connection = not request.user.has_used_free_seek
 

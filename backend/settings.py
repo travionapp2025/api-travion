@@ -39,7 +39,7 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://travion.signaturetechllc.com"
+    "https://travion.signaturetechllc.com",
     "https://signaturetechllc.com",
     "https://www.signaturetechllc.com",
 ]

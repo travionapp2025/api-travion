@@ -7,7 +7,7 @@ from datetime import datetime, date, time
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.files.base import ContentFile
 from users.models import Itinerary, TravelSegment
 import PyPDF2
@@ -23,7 +23,7 @@ class PDFItineraryParserView(APIView):
     """
     OpenAI-powered parser for extracting itinerary information from PDFs or images.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def __init__(self):
         super().__init__()

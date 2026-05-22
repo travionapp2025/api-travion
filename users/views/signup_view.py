@@ -58,16 +58,12 @@ class SignupView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
 
-            if User.objects.filter(phonenumber=normalized_phone).exists():
-                return Response(
-                    {'error': 'User already exists'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            user = User.objects.create(
+            # Get or create user - if user exists, is_new_user will be False
+            user, is_new_user = User.objects.get_or_create(
                 phonenumber=normalized_phone
             )
 
+            # Update or create FCM token for both new and existing users
             if fcm_token and len(fcm_token) >= 10:
                 DeviceToken.objects.update_or_create(
                     user=user,
@@ -78,17 +74,23 @@ class SignupView(APIView):
                     }
                 )
 
+            # Check if user account is active
             if not user.is_active or user.is_deleted:
                 return Response(
                     {'error': 'User account is not active'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
 
+            # Generate tokens for both new and existing users
             refresh = RefreshToken.for_user(user)
 
+            # Determine response status based on whether user is new
+            response_status = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
+            response_message = 'User created successfully' if is_new_user else 'Login successful'
+
             return Response({
-                'message': 'User created successfully',
-                'is_new_user': True,
+                'message': response_message,
+                'is_new_user': is_new_user,
                 'user': {
                     'id': user.id,
                     'phonenumber': user.phonenumber
@@ -97,7 +99,7 @@ class SignupView(APIView):
                     'access': str(refresh.access_token),
                     'refresh': str(refresh)
                 }
-            }, status=status.HTTP_201_CREATED)
+            }, status=response_status)
 
         except auth.InvalidIdTokenError:
             return Response(

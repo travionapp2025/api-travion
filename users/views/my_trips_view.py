@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Max, Q
 from users.models import Itinerary, Match
 import logging
 
@@ -28,7 +28,9 @@ class MyTripsView(APIView):
                     itineraries = Itinerary.objects.filter(
                         id=itinerary_id,
                         user=request.user
-                    ).select_related('user').prefetch_related('segments')
+                    ).select_related('user').prefetch_related('segments').annotate(
+                        latest_departure_date_to=Max('segments__departure_date_to')
+                    )
                     
                     if not itineraries.exists():
                         return Response(
@@ -43,11 +45,19 @@ class MyTripsView(APIView):
             else:
                 itineraries = Itinerary.objects.filter(
                     user=request.user
-                ).select_related('user').prefetch_related('segments').order_by('-created_at')
+                ).select_related('user').prefetch_related('segments').annotate(
+                    latest_departure_date_to=Max('segments__departure_date_to')
+                ).order_by('-latest_departure_date_to', '-created_at')
             
             trips_data = []
+            today = timezone.localdate()
             
             for itinerary in itineraries:
+                latest_departure_date_to = itinerary.latest_departure_date_to
+                is_departure_date_to_crossed = (
+                    latest_departure_date_to is not None and latest_departure_date_to < today
+                )
+
                 matches = Match.objects.filter(
                     status='active',
                     expires_at__gt=timezone.now()
@@ -164,6 +174,7 @@ class MyTripsView(APIView):
                     'title': itinerary.title,
                     'travel_type': itinerary.travel_type,
                     'is_available': itinerary.is_available,
+                    'is_departure_date_to_crossed': is_departure_date_to_crossed,
                     'created_at': itinerary.created_at.isoformat(),
                     'updated_at': itinerary.updated_at.isoformat(),
                     'segments': segments_data,

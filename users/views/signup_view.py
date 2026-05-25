@@ -127,6 +127,7 @@ class CreateProfileView(APIView):
 
         full_name = str(request.data.get('full_name') or '').strip()
         email = str(request.data.get('email') or '').strip().lower()
+        role = request.data.get('role')
 
         if not full_name:
             return Response(
@@ -148,6 +149,16 @@ class CreateProfileView(APIView):
         user.firstname = firstname
         user.lastname = lastname
 
+        if role is not None:
+            role_value = role.strip().lower() if isinstance(role, str) else role
+            valid_roles = {choice[0] for choice in User.ROLE_CHOICES}
+            if role_value not in valid_roles:
+                return Response(
+                    {'error': f"Invalid role. Allowed values: {', '.join(sorted(valid_roles))}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.role = role_value
+
         if email:
             if User.objects.filter(email=email).exclude(id=user.id).exists():
                 return Response(
@@ -166,6 +177,7 @@ class CreateProfileView(APIView):
                 'lastname': user.lastname,
                 'full_name': user.full_name,
                 'email': user.email,
-                'phonenumber': user.phonenumber
+                'phonenumber': user.phonenumber,
+                'role': user.role
             }
         }, status=status.HTTP_200_OK)

@@ -127,7 +127,7 @@ class ItineraryListView(APIView):
         
         return None
 
-    def _search_matches_from_segments(self, segments_data):
+    def _search_matches_from_segments(self, segments_data, user=None):
         matches = []
         for segment_data in segments_data:
             from_airport = segment_data['from_airport'].upper()
@@ -142,6 +142,9 @@ class ItineraryListView(APIView):
                 departure_date_from__lte=departure_date_to,
                 departure_date_to__gte=departure_date_from
             ).select_related('itinerary', 'itinerary__user')
+
+            if user and user.is_authenticated:
+                provider_segments = provider_segments.exclude(itinerary__user=user)
 
             for provider_segment in provider_segments:
                 provider_itinerary = provider_segment.itinerary
@@ -304,7 +307,7 @@ class ItineraryListView(APIView):
                     segment_objects.append(segment)
             else:
                 # Authenticated user requested search-only (save_itinerary=false)
-                matches = self._search_matches_from_segments(segments_data)
+                matches = self._search_matches_from_segments(segments_data, request.user)
 
             # Find matches
             if save_itinerary:
@@ -774,6 +777,9 @@ class ItineraryMatchView(APIView):
                 .select_related('itinerary', 'itinerary__user')
                 .order_by('departure_date_from', 'departure_time_from')
             )
+
+            if request.user and request.user.is_authenticated:
+                base_qs = base_qs.exclude(itinerary__user=request.user)
 
             full_segments = []
             partial_segments = []

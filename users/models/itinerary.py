@@ -16,7 +16,7 @@ class Itinerary(models.Model):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='itineraries')
     title = models.CharField(max_length=200, help_text="Trip title or description")
-    travel_type = models.CharField(max_length=20, choices=TRAVEL_TYPE_CHOICES, default='one_way')
+    travel_type = models.CharField(max_length=50, choices=TRAVEL_TYPE_CHOICES, default='one_way')
     is_paid = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True, help_text="Available to provide services")
     is_first_trip = models.BooleanField(default=False, help_text="True if this is the creator's first itinerary (free for both parties)")
@@ -70,7 +70,7 @@ class TravelSegment(models.Model):
     
     # Optional flight information
     airline = models.CharField(max_length=100, blank=True, null=True)
-    flight_number = models.CharField(max_length=20, blank=True, null=True)
+    flight_number = models.CharField(max_length=50, blank=True, null=True)
     
     # Segment order within the itinerary
     segment_order = models.PositiveIntegerField(default=1)

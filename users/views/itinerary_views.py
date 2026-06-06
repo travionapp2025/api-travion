@@ -129,6 +129,7 @@ class ItineraryListView(APIView):
 
     def _search_matches_from_segments(self, segments_data, user=None):
         matches = []
+        user_id = user.id if user and user.is_authenticated else None
         for segment_data in segments_data:
             from_airport = segment_data['from_airport'].upper()
             to_airport = segment_data['to_airport'].upper()
@@ -143,8 +144,8 @@ class ItineraryListView(APIView):
                 departure_date_to__gte=departure_date_from
             ).select_related('itinerary', 'itinerary__user')
 
-            if user and user.is_authenticated:
-                provider_segments = provider_segments.exclude(itinerary__user=user)
+            if user_id:
+                provider_segments = provider_segments.exclude(itinerary__user_id=user_id)
 
             for provider_segment in provider_segments:
                 provider_itinerary = provider_segment.itinerary
@@ -326,6 +327,11 @@ class ItineraryListView(APIView):
                     'bio': user.bio,
                 }
 
+            current_user_id = request.user.id if is_authenticated else None
+
+            def _is_current_user(user_id):
+                return current_user_id is not None and str(user_id) == str(current_user_id)
+
             serialized_matches = []
             for match in matches:
                 match_type = match.get('match_type')
@@ -334,7 +340,7 @@ class ItineraryListView(APIView):
 
                 if match_type == 'provider_seeker':
                     seeker_request = match['seeker_request']
-                    if is_authenticated and seeker_request.user_id == request.user.id:
+                    if _is_current_user(seeker_request.user_id):
                         continue
                     provider_segment = match.get('provider_segment')
                     if provider_segment:
@@ -355,7 +361,9 @@ class ItineraryListView(APIView):
                         'seeker_user': _serialize_user(seeker_request.user),
                     })
                 elif match_type == 'provider':
-                    if is_authenticated and match.get('provider_user_id') == request.user.id:
+                    provider_user = match.get('provider_user') or {}
+                    provider_user_id = match.get('provider_user_id') or provider_user.get('id')
+                    if _is_current_user(provider_user_id):
                         continue
                     serialized_matches.append({
                         'match_type': 'provider',
@@ -369,7 +377,7 @@ class ItineraryListView(APIView):
                     })
                 elif match_type == 'provider_provider':
                     matched_itinerary = match['matched_provider_itinerary']
-                    if is_authenticated and matched_itinerary.user_id == request.user.id:
+                    if _is_current_user(matched_itinerary.user_id):
                         continue
                     provider_segment = match.get('provider_segment')
                     matched_provider_segment = match.get('matched_provider_segment')

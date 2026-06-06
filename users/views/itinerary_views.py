@@ -334,6 +334,8 @@ class ItineraryListView(APIView):
 
                 if match_type == 'provider_seeker':
                     seeker_request = match['seeker_request']
+                    if is_authenticated and seeker_request.user_id == request.user.id:
+                        continue
                     provider_segment = match.get('provider_segment')
                     if provider_segment:
                         from_airport = provider_segment.from_airport
@@ -353,6 +355,8 @@ class ItineraryListView(APIView):
                         'seeker_user': _serialize_user(seeker_request.user),
                     })
                 elif match_type == 'provider':
+                    if is_authenticated and match.get('provider_user_id') == request.user.id:
+                        continue
                     serialized_matches.append({
                         'match_type': 'provider',
                         'match_quality': match.get('match_quality'),
@@ -365,6 +369,8 @@ class ItineraryListView(APIView):
                     })
                 elif match_type == 'provider_provider':
                     matched_itinerary = match['matched_provider_itinerary']
+                    if is_authenticated and matched_itinerary.user_id == request.user.id:
+                        continue
                     provider_segment = match.get('provider_segment')
                     matched_provider_segment = match.get('matched_provider_segment')
 

@@ -382,12 +382,12 @@ class ItineraryListView(APIView):
                     provider_segment = match.get('provider_segment')
                     matched_provider_segment = match.get('matched_provider_segment')
 
-                    if provider_segment:
-                        from_airport = provider_segment.from_airport
-                        to_airport = provider_segment.to_airport
-                    elif matched_provider_segment:
+                    if matched_provider_segment:
                         from_airport = matched_provider_segment.from_airport
                         to_airport = matched_provider_segment.to_airport
+                    elif provider_segment:
+                        from_airport = provider_segment.from_airport
+                        to_airport = provider_segment.to_airport
 
                     serialized_matches.append({
                         'match_type': 'provider',

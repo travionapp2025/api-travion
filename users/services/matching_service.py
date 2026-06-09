@@ -377,44 +377,25 @@ class MatchingService:
                 seeker_request = match_data['seeker_request']
                 provider_segment = match_data['provider_segment']
 
-                # Check dates overlap
-                dates_overlap = MatchingService._dates_overlap(provider_segment, seeker_request)
-                if not dates_overlap:
+                if not MatchingService._dates_overlap(provider_segment, seeker_request):
                     return 'partial'
 
-                # # Check times overlap (if specified)
-                # times_overlap = MatchingService._times_overlap(provider_segment, seeker_request)
-                # if not times_overlap:
-                #     return 'partial'
-
-                dates_overlap = MatchingService._dates_overlap_segments(provider_segment, matched_provider_segment)
-                if not dates_overlap:
-                    return 'partial'
-                
-                layovers_match = MatchingService._layovers_match(provider_segment, matched_provider_segment)
-                if not layovers_match:
+                if not MatchingService._times_overlap(provider_segment, seeker_request):
                     return 'partial'
 
-                # Since seekers don't specify layover preferences, match is exact if dates and times match
                 return 'exact'
 
             elif match_type == 'provider_provider':
                 provider_segment = match_data['provider_segment']
                 matched_provider_segment = match_data['matched_provider_segment']
 
-                # Check dates overlap
-                dates_overlap = MatchingService._dates_overlap_segments(provider_segment, matched_provider_segment)
-                if not dates_overlap:
+                if not MatchingService._dates_overlap_segments(provider_segment, matched_provider_segment):
                     return 'partial'
 
-                # Check times overlap
-                # times_overlap = MatchingService._times_overlap_segments(provider_segment, matched_provider_segment)
-                # if not times_overlap:
-                #     return 'partial'
+                if not MatchingService._times_overlap_segments(provider_segment, matched_provider_segment):
+                    return 'partial'
 
-                # Check layovers match exactly
-                layovers_match = MatchingService._layovers_match(provider_segment, matched_provider_segment)
-                if not layovers_match:
+                if not MatchingService._layovers_match(provider_segment, matched_provider_segment):
                     return 'partial'
 
                 return 'exact'
@@ -423,22 +404,10 @@ class MatchingService:
                 seeker_request = match_data['seeker_request']
                 matched_seeker_request = match_data['matched_seeker_request']
 
-                # Check dates overlap
-                dates_overlap = MatchingService._dates_overlap_seekers(seeker_request, matched_seeker_request)
-                if not dates_overlap:
+                if not MatchingService._dates_overlap_seekers(seeker_request, matched_seeker_request):
                     return 'partial'
 
-                # # Check times overlap
-                # times_overlap = MatchingService._times_overlap_seekers(seeker_request, matched_seeker_request)
-                # if not times_overlap:
-                #     return 'partial'
-
-                dates_overlap = MatchingService._dates_overlap_segments(provider_segment, matched_provider_segment)
-                if not dates_overlap:
-                    return 'partial'
-                
-                layovers_match = MatchingService._layovers_match(provider_segment, matched_provider_segment)                
-                if not layovers_match:
+                if not MatchingService._times_overlap_seekers(seeker_request, matched_seeker_request):
                     return 'partial'
 
                 return 'exact'
@@ -446,7 +415,7 @@ class MatchingService:
             return 'exact'  # Default to exact
         except Exception as e:
             logger.error(f"Error determining match quality: {str(e)}")
-            return 'exact'  # Default to exact on error
+            return 'partial'
     
     @staticmethod
     def _save_match_to_database(match_data):
@@ -491,6 +460,9 @@ class MatchingService:
                 
                 if existing_match:
                     logger.info(f"⏭️ Match already exists in database: {existing_match.id}")
+                    if existing_match.match_quality != match_quality:
+                        existing_match.match_quality = match_quality
+                        existing_match.save(update_fields=['match_quality', 'updated_at'])
                     return existing_match
                 
                 match = Match.objects.create(
@@ -534,6 +506,9 @@ class MatchingService:
                 
                 if existing_match:
                     logger.info(f"⏭️ Match already exists in database: {existing_match.id}")
+                    if existing_match.match_quality != match_quality:
+                        existing_match.match_quality = match_quality
+                        existing_match.save(update_fields=['match_quality', 'updated_at'])
                     return existing_match
                 
                 match = Match.objects.create(
@@ -580,6 +555,9 @@ class MatchingService:
                 
                 if existing_match:
                     logger.info(f"⏭️ Match already exists in database: {existing_match.id}")
+                    if existing_match.match_quality != match_quality:
+                        existing_match.match_quality = match_quality
+                        existing_match.save(update_fields=['match_quality', 'updated_at'])
                     return existing_match
                 
                 match = Match.objects.create(

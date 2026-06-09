@@ -19,19 +19,13 @@ class MatchingService:
         try:
             if not itinerary.is_available:
                 return []
-
-            cache_key = f"matching_itinerary_{itinerary.id}"
-            if cache.get(cache_key):
-                logger.info(f"⏭️ Skipping matching for itinerary {itinerary.id} (rate limited - too recent)")
-                return []
             
-            cache.set(cache_key, True, 30)
-            logger.info(f"🔍 Starting optimized matching for itinerary {itinerary.id}")
-            
-            # Get segments with optimized query
-            segments = list(itinerary.segments.select_related().all())
+            today = timezone.now().date()
+            segments = list(itinerary.segments.select_related().filter(
+                departure_date_to__gte=today
+            ))
             if not segments:
-                logger.info(f"❌ No segments found for itinerary {itinerary.id}")
+                logger.info(f"❌ No upcoming segments found for itinerary {itinerary.id}")
                 return []
             
             logger.info(f"🔍 Itinerary {itinerary.id} has {len(segments)} segments")
@@ -65,7 +59,8 @@ class MatchingService:
                         
                         if MatchingService._dates_overlap(provider_segment, seeker_request):
                             if MatchingService._times_overlap(provider_segment, seeker_request):
-                                match_quality = MatchingService._layovers_match(provider_segment, seeker_request)
+                                # For provider_seeker matches, if dates and times overlap, it's an exact match
+                                # (layovers only apply to provider_provider matches)
                                 logger.info(f"✅ SEEKER MATCH FOUND! Provider {provider_segment.from_airport}→{provider_segment.to_airport} matches Seeker {seeker_request.from_airport}→{seeker_request.to_airport}")
                                 matches.append({
                                     'seeker_request': seeker_request,
@@ -73,7 +68,7 @@ class MatchingService:
                                     'provider_itinerary': itinerary,
                                     'provider_segment': provider_segment,
                                     'match_type': 'provider_seeker',
-                                    "match_quality" : "exact" if match_quality else "partial",
+                                    "match_quality" : "exact",
                                 })
                                 break  
                             
@@ -82,7 +77,14 @@ class MatchingService:
                 is_available=True
             ).exclude(user=itinerary.user).exclude(id=itinerary.id).select_related('user')
             
-            logger.info(f"🔍 Checking {matching_provider_itineraries.count()} other provider itineraries")
+            # Filter out itineraries with all segments crossed
+            today = timezone.now().date()
+            matching_provider_itineraries = [
+                it for it in matching_provider_itineraries 
+                if it.segments.filter(departure_date_to__gte=today).exists()
+            ]
+            
+            logger.info(f"🔍 Checking {len(matching_provider_itineraries)} other provider itineraries")
             
             for other_itinerary in matching_provider_itineraries:
                 other_segments = list(other_itinerary.segments.select_related().all())
@@ -197,7 +199,14 @@ class MatchingService:
                 to_airport=seeker_request.to_airport
             ).exclude(itinerary__user=seeker_request.user).select_related('itinerary', 'itinerary__user')
             
-            logger.info(f"🔍 Found {provider_segments.count()} provider segments with matching route: {seeker_request.from_airport}→{seeker_request.to_airport}")
+            # Filter out segments from itineraries with all segments crossed
+            today = timezone.now().date()
+            provider_segments = [
+                seg for seg in provider_segments
+                if seg.itinerary.segments.filter(departure_date_to__gte=today).exists()
+            ]
+            
+            logger.info(f"🔍 Found {len(provider_segments)} provider segments with matching route: {seeker_request.from_airport}→{seeker_request.to_airport}")
             
             for provider_segment in provider_segments:
                 # Quick date check first
@@ -275,6 +284,13 @@ class MatchingService:
                 from_airport=seeker_request.from_airport,
                 to_airport=seeker_request.to_airport
             ).exclude(itinerary__user=seeker_request.user).select_related('itinerary', 'itinerary__user')
+            
+            # Filter out segments from itineraries with all segments crossed
+            today = timezone.now().date()
+            provider_segments = [
+                seg for seg in provider_segments
+                if seg.itinerary.segments.filter(departure_date_to__gte=today).exists()
+            ]
 
             match_data_list = []
             for provider_segment in provider_segments:

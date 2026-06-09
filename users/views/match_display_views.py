@@ -49,7 +49,37 @@ class MatchesView(APIView):
                 'matched_provider_segment',
                 'matched_seeker_request',
                 'matched_seeker_request__user'
+            ).prefetch_related(
+                'provider_itinerary__segments',
+                'matched_provider_itinerary__segments'
             ).order_by('-created_at')
+
+            # Filter out matches where itineraries have crossed departure dates
+            today = timezone.localdate()
+            valid_matches = []
+            for match in matches:
+                skip_match = False
+                
+                # Check provider_itinerary
+                if match.provider_itinerary:
+                    latest_departure_to = match.provider_itinerary.segments.values_list(
+                        'departure_date_to', flat=True
+                    ).order_by('-departure_date_to').first()
+                    if latest_departure_to and latest_departure_to < today:
+                        skip_match = True
+                
+                # Check matched_provider_itinerary
+                if match.matched_provider_itinerary:
+                    latest_departure_to = match.matched_provider_itinerary.segments.values_list(
+                        'departure_date_to', flat=True
+                    ).order_by('-departure_date_to').first()
+                    if latest_departure_to and latest_departure_to < today:
+                        skip_match = True
+                
+                if not skip_match:
+                    valid_matches.append(match)
+            
+            matches = valid_matches
 
             matches_data = []
             type_counter = Counter()

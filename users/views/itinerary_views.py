@@ -72,7 +72,8 @@ class ItineraryListView(APIView):
                     'to_airport': to_airport,
                     'departure_date_from': departure_date_from,
                     'airline': airline,
-                    'flight_number': flight_number
+                    'flight_number': flight_number,
+                    'layovers': sorted(self._sanitize_layovers(seg.get('layovers')))
                 })
             except (ValueError, KeyError) as e:
                 logger.error(f"Error normalizing segment for duplicate check: {str(e)}")
@@ -120,7 +121,12 @@ class ItineraryListView(APIView):
                     if existing_seg.flight_number.upper() != new_seg['flight_number']:
                         is_duplicate = False
                         break
-            
+
+                existing_layovers = sorted(self._sanitize_layovers(existing_seg.layovers or []))
+                if existing_layovers != new_seg['layovers']:
+                    is_duplicate = False
+                    break
+
             if is_duplicate:
                 logger.info(f"🔍 Duplicate itinerary found for user {user.id}: existing itinerary {existing_itinerary.id}")
                 return existing_itinerary

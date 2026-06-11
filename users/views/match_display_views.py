@@ -75,7 +75,14 @@ class MatchesView(APIView):
                     ).order_by('-departure_date_to').first()
                     if latest_departure_to and latest_departure_to < today:
                         skip_match = True
-                
+
+                # For provider-provider matches, only show if layovers are compatible
+                if not skip_match and match.match_type == 'provider_provider':
+                    seg1 = match.provider_segment
+                    seg2 = match.matched_provider_segment
+                    if seg1 and seg2 and not MatchingService._layovers_match(seg1, seg2):
+                        skip_match = True
+
                 if not skip_match:
                     valid_matches.append(match)
             

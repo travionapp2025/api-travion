@@ -81,8 +81,38 @@ class MatchesView(APIView):
 
                 if not skip_match:
                     valid_matches.append(match)
-            
-            matches = valid_matches
+
+            # Deduplicate: keep only the most recent match per unique pair
+            seen_pairs = set()
+            deduped_matches = []
+            for match in valid_matches:
+                if match.match_type == 'provider_provider':
+                    pair_key = (
+                        'provider_provider',
+                        frozenset([
+                            match.provider_itinerary_id,
+                            match.matched_provider_itinerary_id
+                        ])
+                    )
+                elif match.match_type == 'provider_seeker':
+                    pair_key = (
+                        'provider_seeker',
+                        match.provider_itinerary_id,
+                        match.seeker_request_id
+                    )
+                else:
+                    pair_key = (
+                        'seeker_seeker',
+                        frozenset([
+                            match.seeker_request_id,
+                            match.matched_seeker_request_id
+                        ])
+                    )
+                if pair_key not in seen_pairs:
+                    seen_pairs.add(pair_key)
+                    deduped_matches.append(match)
+
+            matches = deduped_matches
 
             matches_data = []
             type_counter = Counter()

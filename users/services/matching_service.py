@@ -506,14 +506,13 @@ class MatchingService:
                 departure_date_to = provider_segment.departure_date_to
                 expires_at = max(provider_itinerary.updated_at, matched_provider_itinerary.updated_at) + timedelta(days=30)
                 
-                # Check if match already exists
+                # Check if match already exists in either direction
                 existing_match = Match.objects.filter(
                     match_type='provider_provider',
-                    user1=user1,
-                    user2=user2,
-                    provider_itinerary=provider_itinerary,
-                    matched_provider_itinerary=matched_provider_itinerary,
                     status='active'
+                ).filter(
+                    Q(provider_itinerary=provider_itinerary, matched_provider_itinerary=matched_provider_itinerary) |
+                    Q(provider_itinerary=matched_provider_itinerary, matched_provider_itinerary=provider_itinerary)
                 ).first()
                 
                 if existing_match:

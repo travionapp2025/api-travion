@@ -6,7 +6,6 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db.models import Q
 from users.models import SeekerRequest, Itinerary, TravelSegment, Match
-from users.services.matching_service import MatchingService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,12 +75,9 @@ class MatchesView(APIView):
                     if latest_departure_to and latest_departure_to < today:
                         skip_match = True
 
-                # For provider-provider matches, only show if layovers are compatible
-                if not skip_match and match.match_type == 'provider_provider':
-                    seg1 = match.provider_segment
-                    seg2 = match.matched_provider_segment
-                    if seg1 and seg2 and not MatchingService._layovers_match(seg1, seg2):
-                        skip_match = True
+                # For provider-provider matches, only show exact quality (same layovers + same departure_date_from)
+                if not skip_match and match.match_type == 'provider_provider' and match.match_quality == 'partial':
+                    skip_match = True
 
                 if not skip_match:
                     valid_matches.append(match)

@@ -94,10 +94,9 @@ class MatchingService:
                         if (provider_segment.from_airport == other_segment.from_airport and 
                             provider_segment.to_airport == other_segment.to_airport):
                             
-                            if MatchingService._dates_overlap_segments(provider_segment, other_segment):
-                                if MatchingService._times_overlap_segments(provider_segment, other_segment):
-                                    match_quality = MatchingService._layovers_match(provider_segment, other_segment)
-                                    logger.info(f"✅ PROVIDER MATCH FOUND! Provider {provider_segment.from_airport}→{provider_segment.to_airport} matches Other Provider {other_segment.from_airport}→{other_segment.to_airport}")
+                            if provider_segment.departure_date_from == other_segment.departure_date_from:
+                                    layovers_match = MatchingService._layovers_match(provider_segment, other_segment)
+                                    logger.info(f"✅ PROVIDER MATCH FOUND! Provider {provider_segment.from_airport}→{provider_segment.to_airport} matches Other Provider {other_segment.from_airport}→{other_segment.to_airport} quality={'exact' if layovers_match else 'partial'}")
                                     matches.append({
                                         'seeker_request': None,
                                         'seeker_segment': None,
@@ -106,9 +105,9 @@ class MatchingService:
                                         'matched_provider_itinerary': other_itinerary,
                                         'matched_provider_segment': other_segment,
                                         'match_type': 'provider_provider',
-                                        "match_quality": "exact" if match_quality else "partial",
+                                        'match_quality': 'exact' if layovers_match else 'partial',
                                     })
-                                    break 
+                                    break
             
             if matches:
                 logger.info(f"📤 Sending notifications for {len(matches)} matches (exact and partial)")
@@ -405,10 +404,7 @@ class MatchingService:
                 provider_segment = match_data['provider_segment']
                 matched_provider_segment = match_data['matched_provider_segment']
 
-                if not MatchingService._dates_overlap_segments(provider_segment, matched_provider_segment):
-                    return 'partial'
-
-                if not MatchingService._times_overlap_segments(provider_segment, matched_provider_segment):
+                if provider_segment.departure_date_from != matched_provider_segment.departure_date_from:
                     return 'partial'
 
                 if not MatchingService._layovers_match(provider_segment, matched_provider_segment):
@@ -506,8 +502,8 @@ class MatchingService:
                 user1 = provider_itinerary.user
                 user2 = matched_provider_itinerary.user
                 route = f"{provider_segment.from_airport} → {provider_segment.to_airport}"
-                departure_date_from = min(provider_segment.departure_date_from, matched_provider_segment.departure_date_from)
-                departure_date_to = max(provider_segment.departure_date_to, matched_provider_segment.departure_date_to)
+                departure_date_from = provider_segment.departure_date_from
+                departure_date_to = provider_segment.departure_date_to
                 expires_at = max(provider_itinerary.updated_at, matched_provider_itinerary.updated_at) + timedelta(days=30)
                 
                 # Check if match already exists

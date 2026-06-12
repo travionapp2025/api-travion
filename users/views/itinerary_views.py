@@ -414,12 +414,16 @@ class ItineraryListView(APIView):
                     })
 
             if not save_itinerary:
+                first_seg = segments_data[0] if segments_data else {}
+                last_seg = segments_data[-1] if segments_data else {}
                 logger.info(f"🔍 Temporary search completed, {len(serialized_matches)} matches found (not saved).")
                 return Response({
                     'message': 'Route search completed successfully!',
                     'status': 'searched',
                     'saved': False,
                     'matching_status': 'completed',
+                    'departure_date': first_seg.get('departure_date_from'),
+                    'arrival_date': last_seg.get('departure_date_to'),
                     'matches': serialized_matches
                 }, status=status.HTTP_200_OK)
             else:
@@ -430,6 +434,8 @@ class ItineraryListView(APIView):
                     'status': 'created',
                     'saved': True,
                     'matching_status': 'completed',
+                    'departure_date': itinerary.departure_date,
+                    'arrival_date': itinerary.arrival_date,
                     'matches': serialized_matches
                 }, status=status.HTTP_201_CREATED)
             

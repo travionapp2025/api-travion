@@ -161,6 +161,7 @@ class ItineraryListView(APIView):
                     'match_quality': 'exact',
                     'from_airport': provider_segment.from_airport,
                     'to_airport': provider_segment.to_airport,
+                    'layovers': _format_layovers(provider_segment.layovers),
                     'provider_itinerary_id': provider_itinerary.id,
                     'provider_user_id': provider_user.id,
                     'provider_username': provider_user.full_name,
@@ -362,6 +363,7 @@ class ItineraryListView(APIView):
                         'from_airport': from_airport,
                         'to_airport': to_airport,
                         'departure_date_from': provider_segment.departure_date_from.isoformat() if provider_segment and provider_segment.departure_date_from else None,
+                        'layovers': _format_layovers(provider_segment.layovers) if provider_segment else [],
                         'seeker_request_id': seeker_request.id,
                         'seeker_user_id': seeker_request.user.id,
                         'seeker_username': seeker_request.user.full_name,
@@ -377,6 +379,7 @@ class ItineraryListView(APIView):
                         'match_quality': match.get('match_quality'),
                         'from_airport': match.get('from_airport'),
                         'to_airport': match.get('to_airport'),
+                        'layovers': match.get('layovers', []),
                         'provider_itinerary_id': match.get('provider_itinerary_id'),
                         'provider_user_id': match.get('provider_user_id'),
                         'provider_username': match.get('provider_username'),
@@ -396,12 +399,14 @@ class ItineraryListView(APIView):
                         from_airport = provider_segment.from_airport
                         to_airport = provider_segment.to_airport
 
+                    _layover_seg = matched_provider_segment or provider_segment
                     serialized_matches.append({
                         'match_type': 'provider',
                         'match_quality': match.get('match_quality'),
                         'from_airport': from_airport,
                         'to_airport': to_airport,
                         'departure_date_from': matched_provider_segment.departure_date_from.isoformat() if matched_provider_segment and matched_provider_segment.departure_date_from else (provider_segment.departure_date_from.isoformat() if provider_segment and provider_segment.departure_date_from else None),
+                        'layovers': _format_layovers(_layover_seg.layovers) if _layover_seg else [],
                         'provider_itinerary_id': matched_itinerary.id,
                         'provider_user_id': matched_itinerary.user.id,
                         'provider_username': matched_itinerary.user.full_name,

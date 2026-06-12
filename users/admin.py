@@ -6,6 +6,7 @@ from .models.match import Match
 from .models.itinerary import Itinerary, TravelSegment, SeekerRequest
 from .models.itinerary_payment import ItineraryPayment
 from .models import Airport
+from .models.notification import DeviceToken
 
 @admin.register(Airport)
 class AirportAdmin(admin.ModelAdmin):
@@ -190,6 +191,15 @@ class SeekerRequestAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'title', 'is_active', 'from_airport', 'to_airport', 'departure_date_from', 'departure_date_to', 'departure_time_from', 'departure_time_to', 'expires_at', 'created_at', 'updated_at')
     search_fields = ('user__email', 'title', 'from_airport', 'to_airport')
     list_filter = ('is_active', 'created_at', 'updated_at')
+
+
+@admin.register(DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'device_type', 'is_active', 'created_at')
+    search_fields = ('user__email', 'user__phonenumber', 'token')
+    list_filter = ('device_type', 'is_active', 'created_at')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at',)
 
 
 @admin.register(ItineraryPayment)

@@ -206,8 +206,15 @@ class MatchesView(APIView):
                 if not matched_user_roles:
                     matched_user_roles.append('participant')
 
+                layovers = []
+                if provider_segment and provider_segment.layovers:
+                    layovers = provider_segment.layovers
+                elif matched_provider_segment and matched_provider_segment.layovers:
+                    layovers = matched_provider_segment.layovers
+
                 match_details = {
                     'route': route,
+                    'layovers': layovers,
                     'dates': {
                         'from': departure_date_from,
                         'to': departure_date_to

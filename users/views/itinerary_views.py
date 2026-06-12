@@ -358,9 +358,10 @@ class ItineraryListView(APIView):
 
                     serialized_matches.append({
                         'match_type': 'seeker',
-                        'match_quality':match.get('match_quality'),
+                        'match_quality': match.get('match_quality'),
                         'from_airport': from_airport,
                         'to_airport': to_airport,
+                        'departure_date_from': provider_segment.departure_date_from.isoformat() if provider_segment and provider_segment.departure_date_from else None,
                         'seeker_request_id': seeker_request.id,
                         'seeker_user_id': seeker_request.user.id,
                         'seeker_username': seeker_request.user.full_name,
@@ -397,9 +398,10 @@ class ItineraryListView(APIView):
 
                     serialized_matches.append({
                         'match_type': 'provider',
-                        'match_quality':match.get('match_quality'),
+                        'match_quality': match.get('match_quality'),
                         'from_airport': from_airport,
                         'to_airport': to_airport,
+                        'departure_date_from': matched_provider_segment.departure_date_from.isoformat() if matched_provider_segment and matched_provider_segment.departure_date_from else (provider_segment.departure_date_from.isoformat() if provider_segment and provider_segment.departure_date_from else None),
                         'provider_itinerary_id': matched_itinerary.id,
                         'provider_user_id': matched_itinerary.user.id,
                         'provider_username': matched_itinerary.user.full_name,

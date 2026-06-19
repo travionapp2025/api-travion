@@ -26,9 +26,10 @@ class DeleteAccountView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Soft delete: mark the user as deleted
+            # Soft delete: mark the account inactive and prevent future access
             user.is_deleted = True
-            user.save(update_fields=['is_deleted', 'updated_at'])
+            user.is_active = False
+            user.save(update_fields=['is_deleted', 'is_active', 'updated_at'])
             
             return Response({
                 'message': 'Account successfully deleted',

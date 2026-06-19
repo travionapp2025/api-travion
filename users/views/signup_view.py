@@ -62,6 +62,12 @@ class SignupView(APIView):
             user, is_new_user = User.objects.get_or_create(
                 phonenumber=normalized_phone
             )
+            was_deleted = user.is_deleted
+
+            if was_deleted:
+                user.is_deleted = False
+                user.is_active = True
+                user.save(update_fields=['is_deleted', 'is_active', 'updated_at'])
 
             # Update or create FCM token for both new and existing users
             if fcm_token and len(fcm_token) >= 10:
@@ -75,7 +81,7 @@ class SignupView(APIView):
                 )
 
             # Check if user account is active
-            if not user.is_active or user.is_deleted:
+            if not user.is_active:
                 return Response(
                     {'error': 'User account is not active'},
                     status=status.HTTP_401_UNAUTHORIZED
@@ -86,7 +92,12 @@ class SignupView(APIView):
 
             # Determine response status based on whether user is new
             response_status = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
-            response_message = 'User created successfully' if is_new_user else 'Login successful'
+            if is_new_user:
+                response_message = 'User created successfully'
+            elif was_deleted:
+                response_message = 'Account reactivated successfully'
+            else:
+                response_message = 'Login successful'
 
             return Response({
                 'message': response_message,

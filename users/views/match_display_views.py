@@ -75,10 +75,6 @@ class MatchesView(APIView):
                     if latest_departure_to and latest_departure_to < today:
                         skip_match = True
 
-                # For provider-provider matches, only show exact quality (same layovers + same departure_date_from)
-                if not skip_match and match.match_type == 'provider_provider' and match.match_quality == 'partial':
-                    skip_match = True
-
                 if not skip_match:
                     valid_matches.append(match)
 

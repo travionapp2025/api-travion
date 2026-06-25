@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from django.db.models import Max, Q
+from django.db.models import Max, Min, Q
 from users.models import Itinerary, Match
 import logging
 
@@ -29,6 +29,7 @@ class MyTripsView(APIView):
                         id=itinerary_id,
                         user=request.user
                     ).select_related('user').prefetch_related('segments').annotate(
+                        earliest_departure_date_from=Min('segments__departure_date_from'),
                         latest_departure_date_to=Max('segments__departure_date_to')
                     )
                     
@@ -46,8 +47,9 @@ class MyTripsView(APIView):
                 itineraries = Itinerary.objects.filter(
                     user=request.user
                 ).select_related('user').prefetch_related('segments').annotate(
+                    earliest_departure_date_from=Min('segments__departure_date_from'),
                     latest_departure_date_to=Max('segments__departure_date_to')
-                ).order_by('-latest_departure_date_to', '-created_at')
+                ).order_by('-earliest_departure_date_from', '-created_at')
             
             trips_data = []
             today = timezone.localdate()
